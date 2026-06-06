@@ -45,7 +45,7 @@ export default function Home() {
         {/* Analyze Action Button */}
         <div className="flex justify-center mt-12 animate-in fade-in duration-1000 delay-300">
           <button className="group relative px-8 py-4 font-bold text-white rounded-full bg-gradient-to-r from-primary to-secondary overflow-hidden shadow-[0_0_40px_rgba(59,130,246,0.4)] hover:shadow-[0_0_60px_rgba(139,92,246,0.6)] transition-all duration-300 transform hover:-translate-y-1">
-            <div className="absolute inset-0 w-full h-full bg-white/20 group-hover:scale-105 transition-transform duration-300 ease-out"></div>
+            <span className="absolute inset-0 w-full h-full bg-white/20 group-hover:scale-105 transition-transform duration-300 ease-out"></span>
             <span className="relative flex items-center gap-2 text-lg tracking-wide">
               Analyze Match
               <svg className="w-5 h-5 group-hover:translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
