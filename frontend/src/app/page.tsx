@@ -6,21 +6,21 @@ export default function Home() {
       <div className="max-w-6xl w-full mx-auto space-y-12">
         
         {/* Header Section */}
-        <div className="text-center space-y-4 animate-in slide-in-from-bottom-8 duration-700">
-          <h1 className="text-5xl md:text-6xl font-extrabold tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-blue-400 via-purple-400 to-teal-400 drop-shadow-sm">
-            AI-Powered Matcher
+        <div className="text-center space-y-6 animate-in fade-in slide-in-from-bottom-10 duration-1000 fill-mode-both">
+          <h1 className="text-5xl md:text-7xl font-extrabold tracking-tighter text-transparent bg-clip-text bg-gradient-to-r from-primary via-white to-secondary drop-shadow-[0_0_20px_rgba(14,165,233,0.5)]">
+            CareerDNA AI
           </h1>
-          <p className="text-lg text-gray-300 max-w-2xl mx-auto">
-            Upload a Job Description and your Resume to get deep semantic matching, keyword extraction, and personalized improvement suggestions.
+          <p className="text-lg md:text-xl text-gray-300 max-w-3xl mx-auto leading-relaxed">
+            Upload a Job Description and your Resume to unlock AI-powered semantic matching, keyword intelligence, and personalized career insights.
           </p>
         </div>
 
         {/* Upload Portals Grid */}
-        <div className="grid md:grid-cols-2 gap-8 w-full mt-12 animate-in zoom-in-95 duration-700 delay-150">
+        <div className="grid md:grid-cols-2 gap-8 w-full mt-12 animate-in fade-in zoom-in-95 duration-1000 delay-200 fill-mode-both">
           
           <UploadPortal 
             title="Job Description" 
-            description="Upload the requirements and roles you want to match against."
+            description="Upload the job requirements and role information."
             accept=".pdf,.doc,.docx,.txt"
             icon={
               <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -30,8 +30,8 @@ export default function Home() {
           />
 
           <UploadPortal 
-            title="Your Resume" 
-            description="Upload your latest CV to let Gemini analyze your qualifications."
+            title="Resume" 
+            description="Upload your resume for analysis."
             accept=".pdf,.doc,.docx,.txt"
             icon={
               <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -42,14 +42,23 @@ export default function Home() {
 
         </div>
 
-        {/* Analyze Action Button */}
-        <div className="flex justify-center mt-12 animate-in fade-in duration-1000 delay-300">
-          <button className="group relative px-8 py-4 font-bold text-white rounded-full bg-gradient-to-r from-primary to-secondary overflow-hidden shadow-[0_0_40px_rgba(59,130,246,0.4)] hover:shadow-[0_0_60px_rgba(139,92,246,0.6)] transition-all duration-300 transform hover:-translate-y-1">
+        {/* Action Buttons */}
+        <div className="flex flex-col sm:flex-row items-center justify-center gap-6 mt-16 animate-in fade-in duration-1000 delay-500 fill-mode-both">
+          <button className="group relative px-8 py-4 w-full sm:w-auto font-bold text-white rounded-full bg-gradient-to-r from-primary to-secondary overflow-hidden shadow-[0_0_20px_rgba(14,165,233,0.5)] hover:shadow-[0_0_40px_rgba(168,85,247,0.7)] transition-all duration-500 transform hover:-translate-y-1">
             <span className="absolute inset-0 w-full h-full bg-white/20 group-hover:scale-105 transition-transform duration-300 ease-out"></span>
-            <span className="relative flex items-center gap-2 text-lg tracking-wide">
+            <span className="relative flex items-center justify-center gap-2 text-lg tracking-wide">
               Analyze Match
               <svg className="w-5 h-5 group-hover:translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path>
+              </svg>
+            </span>
+          </button>
+
+          <button className="group relative px-8 py-4 w-full sm:w-auto font-bold text-white rounded-full glass-panel border border-white/10 hover:border-white/30 hover:bg-white/5 transition-all duration-300 shadow-[0_0_15px_rgba(0,0,0,0.3)] hover:shadow-[0_0_25px_rgba(255,255,255,0.1)]">
+            <span className="relative flex items-center justify-center gap-2 text-lg tracking-wide">
+              Download CareerDNA Report
+              <svg className="w-5 h-5 group-hover:translate-y-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path>
               </svg>
             </span>
           </button>

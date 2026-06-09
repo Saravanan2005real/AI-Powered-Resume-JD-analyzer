@@ -1,15 +1,25 @@
+import Link from "next/link";
 
 export default function DeveloperPage() {
   return (
     <div className="flex flex-col items-center justify-center min-h-[calc(100vh-4rem)] p-4 sm:p-8">
       <div className="max-w-4xl w-full mx-auto animate-in fade-in zoom-in-95 duration-700">
         
+        <div className="mb-6 flex justify-start">
+          <Link href="/" className="group flex items-center gap-2 text-primary hover:text-white transition-all duration-300 px-5 py-2 rounded-full glass-panel border border-white/10 hover:bg-white/5 hover:shadow-[0_0_20px_rgba(14,165,233,0.3)] hover:border-primary/50">
+            <svg className="w-5 h-5 group-hover:-translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path>
+            </svg>
+            <span className="font-medium tracking-wide">Back to Dashboard</span>
+          </Link>
+        </div>
+
         <div className="text-center mb-12">
           <h1 className="text-4xl md:text-5xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-secondary to-primary drop-shadow-sm mb-4">
             Meet the Developer
           </h1>
           <p className="text-gray-400 max-w-xl mx-auto">
-            The visionary behind the AI-Powered Resume JD Analyzer.
+            The visionary behind CareerDNA AI.
           </p>
         </div>
 
@@ -37,7 +47,7 @@ export default function DeveloperPage() {
               
               <div className="space-y-4 text-gray-300 leading-relaxed">
                 <p>
-                  Architected and built the AI-Powered Resume JD Analyzer, bridging the gap between modern UI/UX design and powerful Large Language Models.
+                  Architected and built CareerDNA AI, bridging the gap between modern UI/UX design and powerful Large Language Models.
                 </p>
                 <p>
                   <strong>Contributions:</strong>
