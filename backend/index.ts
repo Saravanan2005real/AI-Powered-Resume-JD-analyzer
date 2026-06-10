@@ -1,3 +1,9 @@
+import dotenv from "dotenv";
+
+const result = dotenv.config();
+
+console.log("ENV RESULT:", result);
+console.log("GROQ KEY:", process.env.GROQ_API_KEY);
 import 'dotenv/config';
 import express from 'express';
 import cors from 'cors';

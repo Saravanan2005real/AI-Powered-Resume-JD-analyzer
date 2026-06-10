@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { upload } from '../middleware/uploadMiddleware';
-import { analyzeFiles } from '../controllers/analyzeController';
+import { analyzeFiles, generatePdfReport } from '../controllers/analyzeController';
 
 const router = Router();
 
@@ -9,5 +9,8 @@ router.post('/', upload.fields([
   { name: 'jd', maxCount: 1 },
   { name: 'resumes', maxCount: 5 }
 ]), analyzeFiles);
+
+// PDF Generation Route
+router.post('/pdf', generatePdfReport);
 
 export default router;

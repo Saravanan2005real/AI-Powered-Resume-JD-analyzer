@@ -1,7 +1,19 @@
 {
+  "name": "careerdna-ai",
+  "version": "1.0.0",
+  "description": "CareerDNA AI Application",
+  "scripts": {
+    "dev:frontend": "npm run dev --prefix frontend",
+    "dev:backend": "npm run dev --prefix backend",
+    "dev": "concurrently \"npm run dev:frontend\" \"npm run dev:backend\"",
+    "install:all": "npm install && npm install --prefix frontend && npm install --prefix backend"
+  },
   "dependencies": {
     "groq-sdk": "^1.2.1",
     "jspdf": "^4.2.1",
     "jspdf-autotable": "^5.0.8"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2"
   }
 }

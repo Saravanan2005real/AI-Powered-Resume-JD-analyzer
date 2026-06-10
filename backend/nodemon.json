@@ -1,0 +1,9 @@
+{
+  "watch": ["."],
+  "ext": "ts,json",
+  "ignore": [
+    "node_modules",
+    "uploads/*"
+  ],
+  "exec": "ts-node index.ts"
+}

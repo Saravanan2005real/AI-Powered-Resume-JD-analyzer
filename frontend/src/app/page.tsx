@@ -2,8 +2,6 @@
 
 import { useState } from "react";
 import UploadPortal from "@/components/UploadPortal";
-import Dashboard from "@/components/Dashboard";
-import ReportSection from "@/components/ReportSection";
 
 type AppState = "upload" | "loading" | "results";
 
@@ -11,6 +9,8 @@ export default function Home() {
   const [appState, setAppState] = useState<AppState>("upload");
   const [jdFiles, setJdFiles] = useState<File[]>([]);
   const [resumeFiles, setResumeFiles] = useState<File[]>([]);
+  const [analysisData, setAnalysisData] = useState<any[]>([]);
+  const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
 
   const handleAnalyze = async () => {
     if (jdFiles.length === 0 || resumeFiles.length === 0) {
@@ -20,23 +20,88 @@ export default function Home() {
 
     setAppState("loading");
     
-    // Simulate backend analysis delay
-    setTimeout(() => {
-      setAppState("results");
-    }, 2500);
+    const formData = new FormData();
+    formData.append('jd', jdFiles[0]);
+    resumeFiles.forEach((file) => {
+      formData.append('resumes', file);
+    });
+
+    try {
+      const response = await fetch('http://localhost:5000/api/analyze', {
+        method: 'POST',
+        body: formData,
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || 'Analysis failed');
+      }
+
+      const data = await response.json();
+      
+      if (data && data.length > 0) {
+        setAnalysisData(data); // Save the entire array
+        setAppState("results");
+      } else {
+        alert("No results returned.");
+        setAppState("upload");
+      }
+    } catch (error: any) {
+      console.error('Analysis pipeline error:', error);
+      alert(`Analysis Failed: ${error.message || 'An unexpected error occurred.'}`);
+      setAppState("upload");
+    }
   };
 
-  const handleSampleAnalysis = () => {
-    setAppState("loading");
-    setTimeout(() => {
-      setAppState("results");
-    }, 2000);
+  const handleDownloadReport = async () => {
+    if (!analysisData || analysisData.length === 0) return;
+    
+    setIsGeneratingPdf(true);
+    
+    try {
+      const response = await fetch('http://localhost:5000/api/analyze/pdf', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(analysisData) // Send the full array
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || 'PDF generation failed');
+      }
+
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      
+      const isZip = response.headers.get('Content-Type') === 'application/zip';
+      if (isZip) {
+        a.download = `CareerDNA_Reports.zip`;
+      } else {
+        const singleCand = analysisData[0];
+        a.download = `CareerDNA_Report_${singleCand.candidateName?.replace(/\\s+/g, '_') || 'Candidate'}.pdf`;
+      }
+      
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+    } catch (error: any) {
+      console.error(error);
+      alert(`Failed to download report: ${error.message}`);
+    } finally {
+      setIsGeneratingPdf(false);
+    }
   };
 
   const handleReset = () => {
     setAppState("upload");
     setJdFiles([]);
     setResumeFiles([]);
+    setAnalysisData([]);
   };
 
   return (
@@ -88,7 +153,8 @@ export default function Home() {
             <div className="flex flex-col sm:flex-row items-center justify-center gap-6 mt-16 pb-20">
               <button 
                 onClick={handleAnalyze}
-                className="group relative px-8 py-4 w-full sm:w-auto font-bold text-white rounded-full bg-gradient-to-r from-primary to-secondary overflow-hidden transition-all duration-500 transform shadow-[0_0_20px_rgba(14,165,233,0.5)] hover:shadow-[0_0_40px_rgba(168,85,247,0.7)] hover:-translate-y-1"
+                disabled={jdFiles.length === 0 || resumeFiles.length === 0}
+                className="group relative px-8 py-4 w-full sm:w-auto font-bold text-white rounded-full bg-gradient-to-r from-primary to-secondary overflow-hidden transition-all duration-500 transform shadow-[0_0_20px_rgba(14,165,233,0.5)] hover:shadow-[0_0_40px_rgba(168,85,247,0.7)] hover:-translate-y-1 disabled:opacity-50 disabled:hover:translate-y-0 disabled:hover:shadow-none"
               >
                 <span className="absolute inset-0 w-full h-full bg-white/20 group-hover:scale-105 transition-transform duration-300 ease-out"></span>
                 <span className="relative flex items-center justify-center gap-2 text-lg tracking-wide">
@@ -100,14 +166,15 @@ export default function Home() {
               </button>
 
               <button 
-                onClick={handleSampleAnalysis}
-                className="group relative px-8 py-4 w-full sm:w-auto font-bold text-white rounded-full glass-panel border border-white/10 hover:border-white/30 hover:bg-white/5 transition-all duration-300 shadow-[0_0_15px_rgba(0,0,0,0.3)] hover:shadow-[0_0_25px_rgba(255,255,255,0.1)]"
+                disabled={true}
+                className="group relative px-8 py-4 w-full sm:w-auto font-bold text-gray-500 rounded-full glass-panel border border-white/5 bg-black/50 cursor-not-allowed"
+                title="Analysis required before downloading"
               >
                 <span className="relative flex items-center justify-center gap-2 text-lg tracking-wide">
-                  Try Sample Analysis
-                  <svg className="w-5 h-5 group-hover:translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M14 5l7 7m0 0l-7 7m7-7H3"></path>
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path>
                   </svg>
+                  Download CareerDNA Report
                 </span>
               </button>
             </div>
@@ -126,26 +193,106 @@ export default function Home() {
               </div>
             </div>
             <h2 className="text-2xl font-bold text-white text-center">Decoding Career DNA...</h2>
-            <p className="text-gray-400 text-center max-w-md">Extracting semantic meaning, matching skills, and ranking candidate suitability.</p>
+            <p className="text-gray-400 text-center max-w-md">Extracting semantic meaning, matching skills, and ranking candidate suitability. This may take up to a minute.</p>
           </div>
         )}
 
-        {appState === "results" && (
-          <div className="space-y-16 animate-in fade-in slide-in-from-bottom-8 duration-700 w-full">
-            <div className="flex justify-start">
+        {appState === "results" && analysisData && analysisData.length > 0 && (
+          <div className="flex flex-col items-center justify-center min-h-[50vh] space-y-10 animate-in fade-in zoom-in duration-700 w-full pb-20">
+            
+            <div className="flex flex-col items-center justify-center space-y-6 mt-10">
+              <div className="w-24 h-24 bg-emerald-500/20 rounded-full flex items-center justify-center border-2 border-emerald-500/50 shadow-[0_0_30px_rgba(16,185,129,0.3)]">
+                <svg className="w-12 h-12 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M5 13l4 4L19 7"></path>
+                </svg>
+              </div>
+              <h2 className="text-4xl md:text-5xl font-extrabold tracking-tight text-white drop-shadow-md text-center">
+                ✓ Analysis Complete
+              </h2>
+              <p className="text-gray-400 text-lg text-center">
+                {analysisData.length > 1 
+                  ? `Analyzed and ranked ${analysisData.length} candidates.` 
+                  : `Your personalized CareerDNA report is ready.`}
+              </p>
+            </div>
+
+            {/* Dynamic Rankings Display */}
+            <div className="w-full max-w-2xl bg-white/5 border border-white/10 rounded-2xl p-6 backdrop-blur-md shadow-2xl">
+              <h3 className="text-xl font-bold text-white mb-4 flex items-center gap-2">
+                <svg className="w-6 h-6 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
+                </svg>
+                Candidate Rankings
+              </h3>
+              <div className="space-y-3">
+                {analysisData.map((cand: any, idx: number) => {
+                  let medal = <span className="text-xl font-bold text-gray-500 w-8 text-center">#{idx + 1}</span>;
+                  if (idx === 0) medal = <span className="text-2xl" title="Rank 1">🥇</span>;
+                  else if (idx === 1) medal = <span className="text-2xl" title="Rank 2">🥈</span>;
+                  else if (idx === 2) medal = <span className="text-2xl" title="Rank 3">🥉</span>;
+                  
+                  return (
+                    <div key={idx} className="flex flex-col sm:flex-row sm:items-center justify-between p-4 bg-black/40 rounded-xl border border-white/5 hover:border-white/10 transition-colors">
+                      <div className="flex items-center gap-4">
+                        <div className="flex items-center justify-center w-8">
+                          {medal}
+                        </div>
+                        <span className="text-lg font-semibold text-white truncate max-w-[200px] sm:max-w-[300px]">
+                          {cand.candidateName || 'Unknown Candidate'}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-4 mt-3 sm:mt-0 ml-12 sm:ml-0">
+                        {cand.error ? (
+                          <div className="flex flex-col items-end">
+                            <span className="text-red-400 font-bold text-sm bg-red-500/10 px-3 py-1 rounded-md border border-red-500/20 max-w-xs text-right">
+                              ⚠️ Error: {cand.error}
+                            </span>
+                          </div>
+                        ) : (
+                          <>
+                            <div className="h-2 w-24 bg-gray-700 rounded-full overflow-hidden hidden sm:block">
+                              <div className="h-full bg-primary" style={{ width: `${cand.matchPercentage || 0}%` }}></div>
+                            </div>
+                            <span className="text-primary font-bold min-w-[4rem] text-right">
+                              {cand.matchPercentage || 0}% Match
+                            </span>
+                          </>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            <div className="flex flex-col sm:flex-row items-center justify-center gap-6 mt-8 w-full max-w-2xl">
+              <button 
+                onClick={handleDownloadReport}
+                disabled={isGeneratingPdf}
+                className="group relative px-8 py-4 font-bold text-white text-lg rounded-full bg-gradient-to-r from-primary to-secondary overflow-hidden transition-all duration-500 transform shadow-[0_0_20px_rgba(14,165,233,0.4)] hover:shadow-[0_0_40px_rgba(168,85,247,0.6)] hover:-translate-y-1 disabled:opacity-50 disabled:hover:translate-y-0 disabled:hover:shadow-none w-full sm:w-auto flex-1"
+              >
+                <span className="absolute inset-0 w-full h-full bg-white/20 group-hover:scale-105 transition-transform duration-300 ease-out"></span>
+                <span className="relative flex items-center justify-center gap-3 tracking-wide">
+                  {isGeneratingPdf ? (
+                    <>
+                      <div className="w-6 h-6 border-4 border-white/50 border-t-white rounded-full animate-spin" />
+                      Generating {analysisData.length > 1 ? 'Archive' : 'PDF'}...
+                    </>
+                  ) : (
+                    <>
+                      📄 Download {analysisData.length > 1 ? 'All Reports (.zip)' : 'Report'}
+                    </>
+                  )}
+                </span>
+              </button>
+              
               <button 
                 onClick={handleReset}
-                className="flex items-center gap-2 text-sm font-semibold text-gray-400 hover:text-white transition-colors"
+                className="px-8 py-4 font-bold text-gray-300 text-lg rounded-full glass-panel border border-white/10 hover:text-white hover:bg-white/5 transition-colors w-full sm:w-auto"
               >
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path>
-                </svg>
                 New Analysis
               </button>
             </div>
-            
-            <Dashboard />
-            <ReportSection />
           </div>
         )}
 
