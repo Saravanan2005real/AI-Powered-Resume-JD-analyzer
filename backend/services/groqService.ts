@@ -1,31 +1,41 @@
+import Groq from 'groq-sdk';
+
+const groq = new Groq();
+
 export const analyzeResume = async (jdText: string, resumeText: string, resumeName: string) => {
-  // TODO: Integrate Groq AI here in the future
-  // For now, return realistic mock data based on the requirements
-  
-  // Create some simple variability based on resume name length
-  const scoreBase = 70 + (resumeName.length % 25);
-  
-  return {
-    candidateName: resumeName.split('.')[0] || "Candidate",
-    matchPercentage: Math.min(100, scoreBase + 5),
-    atsScore: Math.min(100, scoreBase),
-    skillsMatch: ["JavaScript", "React", "Node.js", "TypeScript", "Next.js"].slice(0, 3 + (resumeName.length % 3)),
-    missingSkills: ["Docker", "AWS", "GraphQL", "Kubernetes"].slice(0, 1 + (resumeName.length % 3)),
-    strengths: [
-      "Strong project portfolio",
-      "Relevant industry experience",
-      "Good educational background"
-    ].slice(0, 2),
-    weaknesses: [
-      "Limited certifications",
-      "Could improve ATS keyword optimization"
-    ].slice(0, 1),
-    recommendations: [
-      "Add cloud deployment projects",
-      "Incorporate more quantifiable achievements",
-      "Expand on backend experience"
-    ].slice(0, 2)
-  };
+  const prompt = `You are an expert ATS (Applicant Tracking System) and senior technical recruiter. 
+Please analyze the following resume against the provided job description.
+Return ONLY a valid JSON object with the following exact keys and types:
+{
+  "candidateName": "string (extract from resume)",
+  "matchPercentage": "number (0-100)",
+  "atsScore": "number (0-100)",
+  "skillsMatch": ["array", "of", "strings"],
+  "missingSkills": ["array", "of", "strings"],
+  "strengths": ["array", "of", "strings"],
+  "weaknesses": ["array", "of", "strings"],
+  "recommendations": ["array", "of", "strings"]
+}
+
+Job Description:
+${jdText.substring(0, 3000)}
+
+Resume (${resumeName}):
+${resumeText.substring(0, 3000)}`;
+
+  try {
+    const chatCompletion = await groq.chat.completions.create({
+      messages: [{ role: 'user', content: prompt }],
+      model: 'llama3-8b-8192',
+      response_format: { type: "json_object" },
+    });
+
+    const responseContent = chatCompletion.choices[0]?.message?.content || '{}';
+    return JSON.parse(responseContent);
+  } catch (error) {
+    console.error("Groq AI Error in analyzeResume:", error);
+    throw error;
+  }
 };
 
 export const calculateMatch = async () => {

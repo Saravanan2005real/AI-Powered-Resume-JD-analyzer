@@ -39,14 +39,12 @@ export default function UploadPortal({
     
     let newFilesArray = Array.from(newFilesList);
     
-    setFiles(prev => {
-      let updatedFiles = multiple ? [...prev, ...newFilesArray] : newFilesArray;
-      if (updatedFiles.length > maxFiles) {
-        updatedFiles = updatedFiles.slice(0, maxFiles);
-      }
-      if (onFilesChange) onFilesChange(updatedFiles);
-      return updatedFiles;
-    });
+    let updatedFiles = multiple ? [...files, ...newFilesArray] : newFilesArray;
+    if (updatedFiles.length > maxFiles) {
+      updatedFiles = updatedFiles.slice(0, maxFiles);
+    }
+    setFiles(updatedFiles);
+    if (onFilesChange) onFilesChange(updatedFiles);
   };
 
   const handleDrop = (e: React.DragEvent) => {
@@ -63,11 +61,9 @@ export default function UploadPortal({
 
   const removeFile = (e: React.MouseEvent, indexToRemove: number) => {
     e.stopPropagation();
-    setFiles(prev => {
-      const updatedFiles = prev.filter((_, idx) => idx !== indexToRemove);
-      if (onFilesChange) onFilesChange(updatedFiles);
-      return updatedFiles;
-    });
+    const updatedFiles = files.filter((_, idx) => idx !== indexToRemove);
+    setFiles(updatedFiles);
+    if (onFilesChange) onFilesChange(updatedFiles);
   };
 
   return (
