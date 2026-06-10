@@ -7,11 +7,22 @@ interface UploadPortalProps {
   description: string;
   accept: string;
   icon: React.ReactNode;
+  multiple?: boolean;
+  maxFiles?: number;
+  onFilesChange?: (files: File[]) => void;
 }
 
-export default function UploadPortal({ title, description, accept, icon }: UploadPortalProps) {
+export default function UploadPortal({ 
+  title, 
+  description, 
+  accept, 
+  icon, 
+  multiple = false, 
+  maxFiles = 1,
+  onFilesChange 
+}: UploadPortalProps) {
   const [isDragging, setIsDragging] = useState(false);
-  const [file, setFile] = useState<File | null>(null);
+  const [files, setFiles] = useState<File[]>([]);
 
   const handleDrag = (e: React.DragEvent) => {
     e.preventDefault();
@@ -23,20 +34,40 @@ export default function UploadPortal({ title, description, accept, icon }: Uploa
     }
   };
 
+  const processFiles = (newFilesList: FileList | null) => {
+    if (!newFilesList) return;
+    
+    let newFilesArray = Array.from(newFilesList);
+    
+    setFiles(prev => {
+      let updatedFiles = multiple ? [...prev, ...newFilesArray] : newFilesArray;
+      if (updatedFiles.length > maxFiles) {
+        updatedFiles = updatedFiles.slice(0, maxFiles);
+      }
+      if (onFilesChange) onFilesChange(updatedFiles);
+      return updatedFiles;
+    });
+  };
+
   const handleDrop = (e: React.DragEvent) => {
     e.preventDefault();
     e.stopPropagation();
     setIsDragging(false);
-    if (e.dataTransfer.files && e.dataTransfer.files[0]) {
-      setFile(e.dataTransfer.files[0]);
-    }
+    processFiles(e.dataTransfer.files);
   };
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     e.preventDefault();
-    if (e.target.files && e.target.files[0]) {
-      setFile(e.target.files[0]);
-    }
+    processFiles(e.target.files);
+  };
+
+  const removeFile = (e: React.MouseEvent, indexToRemove: number) => {
+    e.stopPropagation();
+    setFiles(prev => {
+      const updatedFiles = prev.filter((_, idx) => idx !== indexToRemove);
+      if (onFilesChange) onFilesChange(updatedFiles);
+      return updatedFiles;
+    });
   };
 
   return (
@@ -68,19 +99,39 @@ export default function UploadPortal({ title, description, accept, icon }: Uploa
             id={`file-upload-${title}`}
             type="file"
             accept={accept}
+            multiple={multiple}
             className="hidden"
             onChange={handleChange}
           />
           
-          {file ? (
-            <div className="flex flex-col items-center animate-in fade-in zoom-in duration-300">
+          {files.length > 0 ? (
+            <div className="flex flex-col w-full gap-2 items-center animate-in fade-in zoom-in duration-300">
               <div className="w-12 h-12 mb-3 rounded-full bg-accent/20 text-accent flex items-center justify-center">
                 <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7"></path>
                 </svg>
               </div>
-              <p className="text-sm font-medium text-white truncate max-w-[200px]">{file.name}</p>
-              <p className="text-xs text-gray-400 mt-1">{(file.size / 1024 / 1024).toFixed(2)} MB</p>
+              
+              {files.map((f, idx) => (
+                <div key={idx} className="flex items-center justify-between w-full bg-white/5 rounded px-3 py-2 border border-white/10">
+                  <div className="flex flex-col text-left overflow-hidden">
+                    <p className="text-sm font-medium text-white truncate w-40">{f.name}</p>
+                    <p className="text-xs text-gray-400">{(f.size / 1024 / 1024).toFixed(2)} MB</p>
+                  </div>
+                  <button 
+                    onClick={(e) => removeFile(e, idx)}
+                    className="text-gray-400 hover:text-red-400 transition-colors"
+                  >
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path>
+                    </svg>
+                  </button>
+                </div>
+              ))}
+              
+              {multiple && files.length < maxFiles && (
+                <p className="text-xs text-primary mt-2">+ Add more files ({files.length}/{maxFiles})</p>
+              )}
             </div>
           ) : (
             <>
