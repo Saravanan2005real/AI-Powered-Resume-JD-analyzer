@@ -1,10 +1,8 @@
-import dotenv from "dotenv";
+import dotenv from 'dotenv';
+dotenv.config();
 
-const result = dotenv.config();
-
-console.log("ENV RESULT:", result);
-console.log("GROQ KEY:", process.env.GROQ_API_KEY);
-import 'dotenv/config';
+console.log("ENV RESULT:", process.env.GROQ_API_KEY ? "Loaded" : "Missing");
+console.log("GROQ KEY:", process.env.GROQ_API_KEY ? "Loaded" : "Missing");
 import express from 'express';
 import cors from 'cors';
 import analyzeRoutes from './routes/analyzeRoutes';

@@ -59,39 +59,25 @@ export default function Home() {
     setIsGeneratingPdf(true);
     
     try {
-      const response = await fetch('http://localhost:5000/api/analyze/pdf', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(analysisData) // Send the full array
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.error || 'PDF generation failed');
-      }
-
-      const blob = await response.blob();
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
+      // Import dynamically to avoid SSR issues if necessary, but here we can just import at top.
+      const { generateReportPDF } = await import('@/utils/pdfGenerator');
       
-      const isZip = response.headers.get('Content-Type') === 'application/zip';
-      if (isZip) {
-        a.download = `CareerDNA_Reports.zip`;
-      } else {
-        const singleCand = analysisData[0];
-        a.download = `CareerDNA_Report_${singleCand.candidateName?.replace(/\\s+/g, '_') || 'Candidate'}.pdf`;
+      let generatedCount = 0;
+      for (const cand of analysisData) {
+        if (!cand.error) {
+          generateReportPDF(cand);
+          generatedCount++;
+          // Add a small delay between downloads to prevent browser blocking
+          await new Promise(resolve => setTimeout(resolve, 300));
+        }
       }
       
-      document.body.appendChild(a);
-      a.click();
-      window.URL.revokeObjectURL(url);
-      document.body.removeChild(a);
+      if (generatedCount === 0) {
+        alert("No valid reports to download.");
+      }
     } catch (error: any) {
       console.error(error);
-      alert(`Failed to download report: ${error.message}`);
+      alert(`Failed to generate report: ${error.message}`);
     } finally {
       setIsGeneratingPdf(false);
     }
@@ -276,11 +262,11 @@ export default function Home() {
                   {isGeneratingPdf ? (
                     <>
                       <div className="w-6 h-6 border-4 border-white/50 border-t-white rounded-full animate-spin" />
-                      Generating {analysisData.length > 1 ? 'Archive' : 'PDF'}...
+                      Generating {analysisData.length > 1 ? 'PDFs' : 'PDF'}...
                     </>
                   ) : (
                     <>
-                      📄 Download {analysisData.length > 1 ? 'All Reports (.zip)' : 'Report'}
+                      📄 Download {analysisData.length > 1 ? 'All Reports' : 'Report'}
                     </>
                   )}
                 </span>

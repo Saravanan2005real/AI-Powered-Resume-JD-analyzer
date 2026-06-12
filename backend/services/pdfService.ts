@@ -1,4 +1,4 @@
-import PDFDocument from 'pdfkit';
+const PDFDocument = require('pdfkit');
 
 export const generateProfessionalPdf = (data: any): Promise<Buffer> => {
   return new Promise((resolve, reject) => {
