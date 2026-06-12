@@ -3,7 +3,7 @@ const PDFDocument = require('pdfkit');
 export const generateProfessionalPdf = (data: any): Promise<Buffer> => {
   return new Promise((resolve, reject) => {
     try {
-      const doc = new PDFDocument({ margin: 50, size: 'A4' });
+      const doc = new PDFDocument({ margin: 40, size: 'A4', bufferPages: true });
       const buffers: Buffer[] = [];
       
       doc.on('data', buffers.push.bind(buffers));
@@ -12,205 +12,289 @@ export const generateProfessionalPdf = (data: any): Promise<Buffer> => {
       });
       doc.on('error', reject);
 
-      // Colors
-      const PRIMARY = '#0ea5e9'; // Neon blue
-      const SECONDARY = '#a855f7'; // Purple
+      // Colors matching Screenshot 2
+      const DARK_BLUE = '#0f172a';
+      const CYAN = '#0ea5e9';
       const TEXT_MAIN = '#1e293b';
       const TEXT_MUTED = '#64748b';
       const BG_LIGHT = '#f8fafc';
-
-      // Helper function for headers
-      const addHeader = (text: string) => {
-        doc.moveDown(2);
-        doc.rect(50, doc.y, 495, 30).fill(BG_LIGHT);
-        doc.fill(PRIMARY).fontSize(16).font('Helvetica-Bold').text(text, 60, doc.y - 22);
-        doc.moveDown(1);
-      };
-
-      // Helper for bullet points
-      const addBullets = (items: string[]) => {
-        if (!items || items.length === 0) {
-          doc.fill(TEXT_MUTED).fontSize(11).font('Helvetica-Oblique').text('Not Available', { indent: 20 });
-          doc.moveDown(0.5);
-          return;
-        }
-        items.forEach(item => {
-          doc.fill(TEXT_MAIN).fontSize(11).font('Helvetica').text(`• ${item}`, { indent: 20, lineGap: 4 });
-        });
-        doc.moveDown(0.5);
-      };
-
-      // Helper for text fallback
-      const safeText = (text: string | undefined | null) => {
-        return text ? text : 'Not Available';
-      };
-
-      // ================= COVER PAGE =================
-      doc.rect(0, 0, 595, 842).fill('#0f172a'); // Dark background for cover
-
-      doc.fill(PRIMARY).fontSize(48).font('Helvetica-Bold').text('CareerDNA AI', 50, 160, { align: 'center' });
-      doc.fill(SECONDARY).fontSize(18).font('Helvetica').text('Talent Intelligence Report', 50, 220, { align: 'center' });
+      const GREEN = '#16a34a';
+      const RED = '#dc2626';
       
-      if (data.rank) {
-        doc.fill('#fbbf24').fontSize(20).font('Helvetica-Bold').text(`Rank: #${data.rank}`, 50, 260, { align: 'center' });
+      const cleanText = (text: string | null | undefined): string => {
+        if (!text) return "";
+        let cleaned = text
+          .replace(/[\u2018\u2019]/g, "'")
+          .replace(/[\u201C\u201D]/g, '"')
+          .replace(/[\u2013\u2014]/g, "-")
+          .replace(/[\u2022\u00B7]/g, "-")
+          .replace(/→/g, "->")
+          .replace(/⇒/g, "=>")
+          .replace(/[“”]/g, '"')
+          .replace(/[‘’]/g, "'")
+          .replace(/\*\*/g, "")
+          .replace(/\*/g, "")
+          .replace(/#{1,6}\s?/g, "")
+          .replace(/`/g, "'");
+        return cleaned.replace(/[^\x20-\x7E\n\r\t]/g, "").trim();
+      };
+
+      const checkPageBreak = (heightNeeded: number) => {
+        if (doc.y + heightNeeded > 780) {
+          doc.addPage();
+        }
+      };
+
+      const addSectionHeader = (title: string) => {
+        checkPageBreak(50);
+        doc.moveDown(1);
+        const startY = doc.y;
+        doc.rect(40, startY, 515, 25).fill(DARK_BLUE);
+        doc.fill('#ffffff').fontSize(12).font('Helvetica-Bold').text(title, 50, startY + 7);
+        doc.y = startY + 35; // Advance past the rect
+      };
+
+      // --- Page Header ---
+      doc.rect(0, 0, 595, 100).fill(DARK_BLUE);
+      
+      doc.fill(CYAN).fontSize(28).font('Helvetica-Bold').text('CareerDNA AI', 40, 30);
+      doc.fill('#ffffff').fontSize(14).font('Helvetica').text('Analysis Report', 40, 65);
+      
+      const candidateName = cleanText(data.candidateName) || "Candidate";
+      doc.fill('#ffffff').fontSize(12).font('Helvetica-Bold').text(candidateName, 300, 35, { align: 'right', width: 255 });
+      doc.fill('#cccccc').fontSize(10).font('Helvetica').text(`Date: ${new Date().toLocaleString()}`, 300, 65, { align: 'right', width: 255 });
+
+      doc.y = 130;
+
+      // --- Section 1: Overall Analysis (Cards) ---
+      checkPageBreak(100);
+      const cardWidth = 150;
+      const cardSpacing = 32.5; // (515 - 450) / 2 = 32.5
+      let startX = 40;
+      const currentY = doc.y;
+
+      // Match Score
+      doc.rect(startX, currentY, cardWidth, 65).fillAndStroke(BG_LIGHT, CYAN);
+      doc.fill(TEXT_MUTED).fontSize(11).font('Helvetica').text('Match Score', startX, currentY + 15, { width: cardWidth, align: 'center' });
+      doc.fill(CYAN).fontSize(22).font('Helvetica-Bold').text(`${data.matchPercentage || data.finalScore || 0}%`, startX, currentY + 35, { width: cardWidth, align: 'center' });
+
+      // ATS Score
+      startX += cardWidth + cardSpacing;
+      const atsScore = data.atsAnalysis?.score || data.matchScores?.ats || data.atsScore || 0;
+      doc.rect(startX, currentY, cardWidth, 65).fillAndStroke(CYAN, CYAN);
+      doc.fill('#ffffff').fontSize(11).font('Helvetica').text('ATS Score', startX, currentY + 15, { width: cardWidth, align: 'center' });
+      doc.fill('#ffffff').fontSize(22).font('Helvetica-Bold').text(`${atsScore}%`, startX, currentY + 35, { width: cardWidth, align: 'center' });
+
+      // Resume Rank
+      startX += cardWidth + cardSpacing;
+      doc.rect(startX, currentY, cardWidth, 65).fillAndStroke(CYAN, CYAN);
+      doc.fill('#ffffff').fontSize(11).font('Helvetica').text('Resume Rank', startX, currentY + 15, { width: cardWidth, align: 'center' });
+      doc.fill('#ffffff').fontSize(22).font('Helvetica-Bold').text(`#${data.rank || 1}`, startX, currentY + 35, { width: cardWidth, align: 'center' });
+
+      doc.y = currentY + 95;
+
+      // --- Section 2: Skills Analysis ---
+      const matchedSkills = data.skillGapAnalysis?.matchedSkills || data.skillsMatched || data.resumeAnalysis?.skills || [];
+      const missingSkills = data.skillGapAnalysis?.missingSkills || data.missingSkills || [];
+
+      if (matchedSkills.length > 0 || missingSkills.length > 0) {
+        addSectionHeader('Skills Analysis');
+        
+        const matchText = matchedSkills.length > 0 ? matchedSkills.map((s: string) => `+ ${cleanText(s)}`).join('\n') : 'None';
+        const missingText = missingSkills.length > 0 ? missingSkills.map((s: string) => `- ${cleanText(s)}`).join('\n') : 'None';
+
+        const startY = doc.y;
+        doc.rect(40, startY, 515, 20).fill('#f8fafc');
+        doc.rect(40, startY, 515, 20).stroke('#e2e8f0');
+        
+        doc.fill(DARK_BLUE).fontSize(10).font('Helvetica-Bold').text('Matching Skills', 50, startY + 6);
+        doc.text('Missing Skills', 40 + 515/2 + 10, startY + 6);
+
+        const colWidth = 515/2 - 20;
+        doc.font('Helvetica').fontSize(10);
+        const h1 = doc.heightOfString(matchText, { width: colWidth });
+        const h2 = doc.heightOfString(missingText, { width: colWidth });
+        const rowHeight = Math.max(h1, h2) + 20;
+        
+        checkPageBreak(rowHeight + 30);
+        const contentY = startY + 20;
+        
+        // Save current doc.y before drawing table to restore it after
+        doc.rect(40, contentY, 515, rowHeight).stroke('#e2e8f0');
+        doc.moveTo(40 + 515/2, contentY).lineTo(40 + 515/2, contentY + rowHeight).stroke('#e2e8f0');
+
+        doc.fill(GREEN).text(matchText, 50, contentY + 10, { width: colWidth });
+        doc.fill(RED).text(missingText, 40 + 515/2 + 10, contentY + 10, { width: colWidth });
+
+        doc.y = contentY + rowHeight + 20;
       }
 
-      doc.moveDown(4);
-      doc.fill('#ffffff').fontSize(24).font('Helvetica-Bold').text(safeText(data.candidateName), { align: 'center' });
-      doc.moveDown(1);
-      doc.fill('#cbd5e1').fontSize(16).font('Helvetica').text(`Target Role: ${safeText(data.jdAnalysis?.title)}`, { align: 'center' });
-      
-      doc.moveDown(3);
-      doc.rect(200, doc.y, 195, 100).fill('#1e293b').stroke('#0ea5e9');
-      doc.fill('#0ea5e9').fontSize(14).text('CareerDNA Match Score', 200, doc.y - 85, { align: 'center' });
-      doc.fill('#ffffff').fontSize(42).font('Helvetica-Bold').text(data.matchPercentage != null ? `${data.matchPercentage}%` : 'Not Available', 200, doc.y - 50, { align: 'center' });
+      // --- Section 3: Strengths & Weaknesses ---
+      const strengths = data.executiveSummary?.strengths || data.strengths || [];
+      const weaknesses = data.executiveSummary?.opportunities || data.weaknesses || [];
 
-      doc.fill('#64748b').fontSize(10).font('Helvetica').text(`Generated on ${new Date().toLocaleDateString()}`, 50, 750, { align: 'center' });
-      
-      doc.addPage();
-      // ================= END COVER PAGE =================
+      if (strengths.length > 0 || weaknesses.length > 0) {
+        addSectionHeader('Strengths & Weaknesses');
+        
+        const strengthsText = strengths.length > 0 ? strengths.map((s: string) => `- ${cleanText(s)}`).join('\n') : 'None';
+        const weaknessesText = weaknesses.length > 0 ? weaknesses.map((s: string) => `- ${cleanText(s)}`).join('\n') : 'None';
 
-      // Global resets for internal pages
-      doc.fill(TEXT_MAIN);
+        const startY = doc.y;
+        doc.rect(40, startY, 515, 20).fill('#f8fafc');
+        doc.rect(40, startY, 515, 20).stroke('#e2e8f0');
+        
+        doc.fill(DARK_BLUE).fontSize(10).font('Helvetica-Bold').text('Core Strengths', 50, startY + 6);
+        doc.text('Areas of Improvement', 40 + 515/2 + 10, startY + 6);
 
-      // 1. EXECUTIVE SUMMARY
-      addHeader('1. EXECUTIVE SUMMARY');
-      doc.fontSize(12).font('Helvetica-Bold').text('Candidate Profile');
-      doc.font('Helvetica').fontSize(11).text(safeText(data.executiveSummary?.profile), { lineGap: 4, align: 'justify' });
-      doc.moveDown();
-      
-      doc.font('Helvetica-Bold').text('Role Suitability');
-      doc.font('Helvetica').text(safeText(data.executiveSummary?.suitability), { lineGap: 4, align: 'justify' });
-      doc.moveDown();
+        const colWidth = 515/2 - 20;
+        doc.font('Helvetica').fontSize(10);
+        const h1 = doc.heightOfString(strengthsText, { width: colWidth });
+        const h2 = doc.heightOfString(weaknessesText, { width: colWidth });
+        const rowHeight = Math.max(h1, h2) + 20;
+        
+        checkPageBreak(rowHeight + 30);
+        const contentY = startY + 20;
+        
+        doc.rect(40, contentY, 515, rowHeight).stroke('#e2e8f0');
+        doc.moveTo(40 + 515/2, contentY).lineTo(40 + 515/2, contentY + rowHeight).stroke('#e2e8f0');
 
-      doc.font('Helvetica-Bold').text('Core Strengths');
-      addBullets(data.executiveSummary?.strengths);
+        doc.fill(TEXT_MAIN).text(strengthsText, 50, contentY + 10, { width: colWidth });
+        doc.fill(TEXT_MAIN).text(weaknessesText, 40 + 515/2 + 10, contentY + 10, { width: colWidth });
 
-      doc.font('Helvetica-Bold').text('Improvement Opportunities');
-      addBullets(data.executiveSummary?.opportunities);
+        doc.y = contentY + rowHeight + 20;
+      }
 
-      // 2. MATCH SCORE BREAKDOWN
-      addHeader('2. MATCH SCORE BREAKDOWN');
-      const scores = data.matchScores || {};
-      const scoreItems = [
-        { label: 'Overall Match', val: scores.overall },
-        { label: 'Skills Match', val: scores.skills },
-        { label: 'Experience Fit', val: scores.experience },
-        { label: 'ATS Optimization', val: scores.ats },
-        { label: 'Keyword Match', val: scores.keywords }
+      // --- Section 4: Evidence Deep Dive ---
+      const projects = data.scoreEvidence?.projects || data.resumeAnalysis?.projects || [];
+      const internships = data.scoreEvidence?.internships || data.resumeAnalysis?.experience || [];
+      const certifications = data.scoreEvidence?.certifications || data.resumeAnalysis?.certifications || [];
+
+      if (projects.length > 0 || internships.length > 0 || certifications.length > 0) {
+        addSectionHeader('Evidence Deep Dive');
+        
+        if (projects.length > 0) {
+          doc.fill(DARK_BLUE).fontSize(11).font('Helvetica-Bold').text('Relevant Projects (Evidence):', 40, doc.y);
+          doc.moveDown(0.5);
+          projects.forEach((p: string) => {
+            checkPageBreak(15);
+            doc.x = 40;
+            doc.fill(TEXT_MAIN).fontSize(10).font('Helvetica').text(`• ${cleanText(p)}`, { width: 515, lineGap: 3, indent: 10 });
+          });
+          doc.moveDown(1);
+        }
+
+        if (internships.length > 0) {
+          checkPageBreak(30);
+          doc.fill(DARK_BLUE).fontSize(11).font('Helvetica-Bold').text('Relevant Internship / Experience (Evidence):', 40, doc.y);
+          doc.moveDown(0.5);
+          internships.forEach((p: string) => {
+            checkPageBreak(15);
+            doc.x = 40;
+            doc.fill(TEXT_MAIN).fontSize(10).font('Helvetica').text(`• ${cleanText(p)}`, { width: 515, lineGap: 3, indent: 10 });
+          });
+          doc.moveDown(1);
+        }
+
+        if (certifications.length > 0) {
+          checkPageBreak(30);
+          doc.fill(DARK_BLUE).fontSize(11).font('Helvetica-Bold').text('Certifications (Evidence):', 40, doc.y);
+          doc.moveDown(0.5);
+          certifications.forEach((p: string) => {
+            checkPageBreak(15);
+            doc.x = 40;
+            doc.fill(TEXT_MAIN).fontSize(10).font('Helvetica').text(`• ${cleanText(p)}`, { width: 515, lineGap: 3, indent: 10 });
+          });
+          doc.moveDown(1);
+        }
+      }
+
+      // --- Section 5: Detailed Analysis ---
+      addSectionHeader('Detailed Analysis');
+
+      const details = [
+        { title: "Candidate Overview", content: cleanText(data.candidateOverview || data.executiveSummary?.overview) },
+        { title: "Match Analysis", content: cleanText(data.matchAnalysis || data.rankingReason) },
+        { title: "ATS Analysis", content: cleanText(data.atsAnalysis?.details || data.atsAnalysis?.feedback) },
+        { title: "Education Analysis", content: cleanText(data.educationAnalysis) },
+        { title: "Experience Relevance", content: cleanText(data.experienceAnalysis) },
+        { title: "Project Relevance", content: cleanText(data.projectAnalysis) },
+        { title: "Certification Relevance", content: cleanText(data.certificationAnalysis) },
+        { title: "Career Growth Potential", content: cleanText(data.careerPotential) },
+        { title: "Interview Recommendation", content: cleanText(data.interviewRecommendation) },
       ];
 
-      let yPos = doc.y;
-      scoreItems.forEach((s, idx) => {
-        const y = yPos + (idx * 30);
-        doc.fill(TEXT_MAIN).fontSize(11).font('Helvetica-Bold').text(s.label, 50, y);
-        // Bar background
-        doc.rect(200, y, 300, 15).fill('#e2e8f0');
-        // Bar fill
-        if (s.val != null) doc.rect(200, y, (s.val / 100) * 300, 15).fill(PRIMARY);
-        // Text value
-        doc.fill(TEXT_MAIN).fontSize(11).text(s.val != null ? `${s.val}%` : 'Not Available', 510, y);
+      // Comparison Awards
+      if (data.comparisonAwards) {
+        let awardsText = "";
+        const name = data.candidateName || data.originalName;
+        if (data.comparisonAwards.bestTechnicalCandidate === name) awardsText += "- Best Technical Candidate\n";
+        if (data.comparisonAwards.bestProjectPortfolio === name) awardsText += "- Best Project Portfolio\n";
+        if (data.comparisonAwards.bestIndustryExperience === name) awardsText += "- Best Industry Experience\n";
+        if (data.comparisonAwards.bestLearningPotential === name) awardsText += "- Best Learning Potential\n";
+        if (data.comparisonAwards.bestOverallFit === name) awardsText += "- Best Overall Fit\n";
+        
+        if (awardsText) {
+           details.push({ title: "Multi-Resume Comparison Awards", content: cleanText(awardsText) });
+        }
+      }
+
+      details.forEach((item) => {
+        if (item.content) {
+          checkPageBreak(80);
+          doc.x = 40;
+          doc.fill(DARK_BLUE).fontSize(11).font('Helvetica-Bold').text(item.title);
+          doc.moveDown(0.5);
+          doc.x = 40;
+          doc.fill(TEXT_MAIN).fontSize(10).font('Helvetica').text(item.content, { width: 515, align: 'justify', lineGap: 3 });
+          doc.moveDown(1.5);
+        }
       });
-      doc.y = yPos + (scoreItems.length * 30) + 20;
 
-      // 3. DEEP DIVE ANALYSIS
-      addHeader('3. DEEP DIVE ANALYSIS');
-      doc.font('Helvetica-Bold').text('Education Analysis');
-      doc.font('Helvetica').text(safeText(data.educationAnalysis), { lineGap: 4 });
-      doc.moveDown();
+      // --- Section 6: Recommendations ---
+      const recommendations = data.atsAnalysis?.recommendations || data.recommendations || [];
+      if (recommendations.length > 0) {
+        addSectionHeader('Improvement Suggestions');
+        recommendations.forEach((r: string) => {
+           checkPageBreak(20);
+           doc.x = 40;
+           doc.fill(TEXT_MAIN).fontSize(10).font('Helvetica').text(`• ${cleanText(r)}`, { width: 515, lineGap: 3, indent: 10 });
+        });
+        doc.moveDown(1);
+      }
+
+      // --- Section 7: Final Verdict ---
+      const verdict = cleanText(data.recruiterVerdict?.verdict || data.verdict || "Analysis Complete");
+      const reasoning = cleanText(
+        data.recruiterVerdict?.reasoning || data.verdictReasoning ||
+        "Candidate matches the profile based on the provided data."
+      );
+
+      addSectionHeader('Final Hiring Verdict');
+
+      const verdictStartY = doc.y;
+      // Ensure we have enough space for the title box and reasoning block
+      doc.font('Helvetica').fontSize(10);
+      const reasoningHeight = doc.heightOfString(reasoning, { width: 495 }) + 20;
+      if (verdictStartY + 25 + reasoningHeight + 20 > 780) {
+        doc.addPage();
+      }
       
-      doc.font('Helvetica-Bold').text('Experience Analysis');
-      doc.font('Helvetica').text(safeText(data.experienceAnalysis), { lineGap: 4 });
-      doc.moveDown();
-
-      doc.font('Helvetica-Bold').text('Project Analysis');
-      doc.font('Helvetica').text(safeText(data.projectAnalysis), { lineGap: 4 });
-      doc.moveDown();
-
-      doc.font('Helvetica-Bold').text('Certification Analysis');
-      doc.font('Helvetica').text(safeText(data.certificationAnalysis), { lineGap: 4 });
-      doc.moveDown();
-
-      doc.addPage();
-
-      // 4. SKILL GAP ANALYSIS
-      addHeader('4. SKILL GAP ANALYSIS');
-      doc.font('Helvetica-Bold').text('Matched Skills (Strengths):');
-      addBullets(data.skillGapAnalysis?.matchedSkills);
+      const newVerdictStartY = doc.y;
+      doc.rect(40, newVerdictStartY, 515, 25).fill(BG_LIGHT).stroke(CYAN);
+      doc.fill(CYAN).fontSize(11).font('Helvetica-Bold').text(`Verdict: ${verdict}`, 50, newVerdictStartY + 7);
       
-      doc.font('Helvetica-Bold').fill('#ef4444').text('Missing Skills (Gaps):');
-      doc.fill(TEXT_MAIN);
-      addBullets(data.skillGapAnalysis?.missingSkills);
-      
-      doc.font('Helvetica-Bold').text('Priority Skills to Learn:');
-      addBullets(data.skillGapAnalysis?.prioritySkillsToLearn);
+      const reasoningY = newVerdictStartY + 25;
+      doc.rect(40, reasoningY, 515, reasoningHeight).fill(BG_LIGHT).stroke(CYAN);
+      doc.fill(TEXT_MAIN).fontSize(10).font('Helvetica').text(reasoning, 50, reasoningY + 10, { width: 495, lineGap: 3 });
 
-      // 5. ATS & KEYWORD ANALYSIS
-      addHeader('5. ATS & KEYWORD ANALYSIS');
-      doc.font('Helvetica-Bold').text(`ATS Score: ${data.atsAnalysis?.score != null ? `${data.atsAnalysis.score}%` : 'Not Available'}`);
-      doc.moveDown();
-      doc.font('Helvetica-Bold').text('Formatting & Structure:');
-      doc.font('Helvetica').text(safeText(data.atsAnalysis?.formatting), { lineGap: 4 });
-      doc.moveDown();
-      
-      doc.font('Helvetica-Bold').text('Missing Keywords:');
-      addBullets(data.keywordAnalysis?.missing);
-
-      doc.font('Helvetica-Bold').text('ATS Optimization Recommendations:');
-      addBullets(data.atsAnalysis?.recommendations);
-
-      doc.addPage();
-
-      // 6. RECRUITER VERDICT & INTERVIEW READINESS
-      addHeader('6. RECRUITER VERDICT & INTERVIEW READINESS');
-      doc.fontSize(14).font('Helvetica-Bold').fill(data.recruiterVerdict?.verdict === 'Strong Hire' ? PRIMARY : SECONDARY)
-         .text(`Verdict: ${safeText(data.recruiterVerdict?.verdict)}`);
-      doc.fill(TEXT_MAIN).fontSize(11).font('Helvetica').text(safeText(data.recruiterVerdict?.reasoning), { lineGap: 4 });
-      doc.moveDown();
-
-      doc.font('Helvetica-Bold').text('Suggested Interview Questions:');
-      addBullets(data.interviewReadiness?.potentialQuestions);
-
-      // 7. CAREER DNA ROADMAP
-      addHeader('7. CAREER DNA ROADMAP');
-      doc.font('Helvetica-Bold').text('Current vs Target State');
-      doc.font('Helvetica').text(`Current: ${safeText(data.roadmap?.currentDNA)}`, { lineGap: 4 });
-      doc.text(`Target: ${safeText(data.roadmap?.targetDNA)}`, { lineGap: 4 });
-      doc.moveDown();
-
-      doc.font('Helvetica-Bold').text('Learning Roadmap');
-      addBullets(data.roadmap?.learningRoadmap);
-
-      doc.font('Helvetica-Bold').text('Recommended Technologies & Certifications');
-      const allRecs = [...(data.roadmap?.recommendedTechnologies || []), ...(data.roadmap?.suggestedCertifications || [])];
-      addBullets(allRecs);
-
-      doc.font('Helvetica-Bold').text(`Estimated Timeline: ${safeText(data.roadmap?.estimatedTimeline)}`);
-      doc.moveDown();
-
-      doc.addPage();
-
-      // 8. ACTION PLAN (30-60-90)
-      addHeader('8. ACTION PLAN');
-      
-      doc.font('Helvetica-Bold').fill(PRIMARY).text('First 30 Days:');
-      doc.fill(TEXT_MAIN);
-      addBullets(data.actionPlan?.day30);
-
-      doc.font('Helvetica-Bold').fill(PRIMARY).text('60 Days:');
-      doc.fill(TEXT_MAIN);
-      addBullets(data.actionPlan?.day60);
-
-      doc.font('Helvetica-Bold').fill(PRIMARY).text('90 Days:');
-      doc.fill(TEXT_MAIN);
-      addBullets(data.actionPlan?.day90);
+      doc.y = reasoningY + reasoningHeight + 20;
 
       // Footer on all pages
       const pages = doc.bufferedPageRange();
-      for (let i = 1; i < pages.count; i++) {
+      for (let i = 0; i < pages.count; i++) {
         doc.switchToPage(i);
         doc.font('Helvetica').fontSize(9).fill(TEXT_MUTED)
-           .text(`CareerDNA AI Report - Confidential - Page ${i + 1}`, 50, 800, { align: 'center' });
+           .text(`CareerDNA AI Report - Page ${i + 1} of ${pages.count}`, 40, 810, { align: 'center', width: 515 });
       }
 
       doc.end();

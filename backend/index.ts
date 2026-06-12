@@ -6,6 +6,7 @@ console.log("GROQ KEY:", process.env.GROQ_API_KEY ? "Loaded" : "Missing");
 import express from 'express';
 import cors from 'cors';
 import analyzeRoutes from './routes/analyzeRoutes';
+import { generatePdfReport } from './controllers/analyzeController';
 import fs from 'fs';
 import path from 'path';
 
@@ -24,6 +25,7 @@ app.use(express.json());
 
 // Routes
 app.use('/api/analyze', analyzeRoutes);
+app.post('/api/generate-pdf', generatePdfReport);
 
 // Error handling middleware
 app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {

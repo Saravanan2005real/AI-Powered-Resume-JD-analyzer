@@ -1,6 +1,6 @@
 import { Request, Response } from 'express';
 import { extractTextFromFile } from '../services/textExtractor';
-import { analyzeResume } from '../services/groqService';
+import { analyzeResume, compareResumes } from '../services/groqService';
 import fs from 'fs';
 import { generateProfessionalPdf } from '../services/pdfService';
 const archiver = require('archiver');
@@ -44,7 +44,7 @@ export const analyzeFiles = async (req: Request, res: Response): Promise<void> =
       return;
     }
 
-    const results = [];
+    let results = [];
 
     // Process each resume
     for (const resume of resumeFiles) {
@@ -65,7 +65,33 @@ export const analyzeFiles = async (req: Request, res: Response): Promise<void> =
 
         console.log(`[DEBUG] Sending to Groq API for: ${resume.originalname}`);
         const analysis = await analyzeResume(jdText, resumeText, resume.originalname);
-        console.log(`[DEBUG] Received valid analysis for: ${resume.originalname}, Match: ${analysis.matchPercentage}%`);
+        
+        // Calculate Backend Final Score
+        const skillMatch = Number(analysis.skillMatchScore) || 0;
+        const projectScore = Number(analysis.projectScore) || 0;
+        const internshipScore = Number(analysis.internshipScore) || 0;
+        const techDepth = Number(analysis.technicalDepthScore) || 0;
+        const education = Number(analysis.educationScore) || 0;
+        const certification = Number(analysis.certificationScore) || 0;
+        const growth = Number(analysis.growthPotentialScore) || 0;
+
+        const finalScore = Math.round(
+          (skillMatch * 0.30) +
+          (projectScore * 0.25) +
+          (internshipScore * 0.20) +
+          (techDepth * 0.10) +
+          (education * 0.05) +
+          (certification * 0.05) +
+          (growth * 0.05)
+        );
+
+        // Map final score to matchPercentage to ensure legacy frontend UI compatibility
+        analysis.finalScore = finalScore;
+        analysis.matchPercentage = finalScore;
+        if (!analysis.matchScores) analysis.matchScores = {};
+        analysis.matchScores.overall = finalScore;
+
+        console.log(`[DEBUG] Received valid analysis for: ${resume.originalname}, Final Score: ${finalScore}%`);
         
         results.push({
           ...analysis,
@@ -90,13 +116,19 @@ export const analyzeFiles = async (req: Request, res: Response): Promise<void> =
     }
 
     // Sort results by match percentage descending
-    results.sort((a, b) => b.matchPercentage - a.matchPercentage);
+    results.sort((a, b) => (b.matchPercentage || 0) - (a.matchPercentage || 0));
     
     // Add rank
-    const rankedResults = results.map((result, index) => ({
-      rank: index + 1,
-      ...result
+    let rankedResults = results.map((result, index) => ({
+      ...result,
+      rank: index + 1
     }));
+
+    // Multi-Resume Comparison
+    if (rankedResults.length > 1 && !rankedResults.every(r => r.error)) {
+      console.log(`[DEBUG] Triggering Multi-Resume Comparison for ${rankedResults.length} candidates...`);
+      rankedResults = await compareResumes(jdText, rankedResults);
+    }
 
     res.json(rankedResults);
 
@@ -133,7 +165,8 @@ export const generatePdfReport = async (req: Request, res: Response): Promise<vo
       const pdfBuffer = await generateProfessionalPdf(data);
       
       res.setHeader('Content-Type', 'application/pdf');
-      res.setHeader('Content-Disposition', `attachment; filename="CareerDNA_Report_${data.candidateName.replace(/\s+/g, '_')}.pdf"`);
+      const safeName = (data.candidateName || 'Candidate').replace(/\s+/g, '');
+      res.setHeader('Content-Disposition', `attachment; filename="CareerDNA_Report_${safeName}.pdf"`);
       res.send(pdfBuffer);
       console.log(`Successfully generated PDF for candidate: ${data.candidateName}`);
     } else {
@@ -150,10 +183,11 @@ export const generatePdfReport = async (req: Request, res: Response): Promise<vo
       archive.pipe(res);
 
       for (const data of dataArray) {
-        console.log("Creating PDF...");
+        console.log(`Creating PDF for ${data.candidateName}...`);
         const pdfBuffer = await generateProfessionalPdf(data);
-        const fileName = `CareerDNA_Report_${data.candidateName.replace(/\s+/g, '_')}.pdf`;
-        console.log("Adding PDF to ZIP...");
+        const safeName = (data.candidateName || 'Candidate').replace(/\s+/g, '');
+        const fileName = `${safeName}_Report.pdf`;
+        console.log(`Adding ${fileName} to ZIP...`);
         archive.append(pdfBuffer, { name: fileName });
       }
 

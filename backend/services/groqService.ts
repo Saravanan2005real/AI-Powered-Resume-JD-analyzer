@@ -10,97 +10,66 @@ export const analyzeResume = async (jdText: string, resumeText: string, resumeNa
     apiKey: process.env.GROQ_API_KEY,
   });
 
-  const prompt = `You are an expert ATS (Applicant Tracking System), Senior Technical Recruiter, and Career Coach.
+  const prompt = `You are an expert Technical Recruiter and Intelligent Recruitment Analysis System.
 Please perform a deep, comprehensive analysis of the following resume against the provided job description.
-Return ONLY a valid JSON object matching the exact structure and keys below. Provide detailed, professional, recruiter-grade analysis for all string values.
+DO NOT use simple keyword matching. Use strict evidence-based validation. Reward skills only if there is evidence they were used in Projects, Internships, or Experience.
 
-CRITICAL INSTRUCTION: NEVER return null, undefined, or 'N/A' for any field. If data is missing or not applicable, strictly use the string "Not Available".
+Return ONLY a valid JSON object matching the exact structure below.
+
+CRITICAL INSTRUCTION: NEVER return null, undefined, or 'N/A' for any field. Use empty arrays [] or the string "Not Available" if data is missing.
 
 JSON SCHEMA:
 {
   "candidateName": "string (extract from resume)",
-  "matchPercentage": "number (overall match 0-100)",
-  "executiveSummary": {
-    "profile": "string (1 paragraph candidate profile summary)",
-    "suitability": "string (1 paragraph on their suitability for this specific role)",
-    "strengths": ["array of 3-5 strings (core strengths)"],
-    "opportunities": ["array of 2-3 strings (major improvement opportunities)"]
-  },
-  "matchScores": {
-    "overall": "number (same as matchPercentage)",
-    "skills": "number (0-100)",
-    "experience": "number (0-100)",
-    "ats": "number (0-100)",
-    "keywords": "number (0-100)",
-    "education": "number (0-100)"
-  },
-  "jdAnalysis": {
-    "title": "string",
-    "requiredSkills": ["array of strings"],
-    "preferredSkills": ["array of strings"],
-    "requiredExperience": "string",
-    "responsibilities": ["array of strings"],
-    "keywords": ["array of strings"],
-    "techStack": ["array of strings"]
-  },
-  "resumeAnalysis": {
-    "skills": ["array of strings"],
-    "projects": ["array of short strings (names or brief desc)"],
-    "experience": ["array of short strings (roles & companies)"],
+  "skillMatchScore": "number (0-100, based on evidence of skill usage)",
+  "projectScore": "number (0-100, based on project relevance and complexity)",
+  "internshipScore": "number (0-100, based on relevant experience/internships)",
+  "technicalDepthScore": "number (0-100, based on technical complexity demonstrated)",
+  "educationScore": "number (0-100, based on education requirements)",
+  "certificationScore": "number (0-100, based on relevant certifications)",
+  "growthPotentialScore": "number (0-100, based on hackathons, leadership, achievements, open source)",
+  
+  "skillsMatched": ["array of strings (skills with evidence)"],
+  "missingSkills": ["array of strings (mandatory/preferred skills missing)"],
+  "strengths": ["array of strings"],
+  "weaknesses": ["array of strings"],
+  "recommendations": ["array of strings (how to improve)"],
+
+  "educationAnalysis": "string (detailed evaluation of education)",
+  "experienceAnalysis": "string (detailed evaluation of internships/experience)",
+  "projectAnalysis": "string (detailed evaluation of projects)",
+  "certificationAnalysis": "string (detailed evaluation of certifications)",
+
+  "careerPotential": "string (evaluation of long-term potential)",
+  "interviewRecommendation": "string (topics to test in interview)",
+
+  "scoreEvidence": {
+    "skills": ["array of strings (evidence of skill usage)"],
+    "projects": ["array of strings (evidence of strong projects)"],
+    "internships": ["array of strings (evidence of relevant work)"],
     "certifications": ["array of strings"],
-    "education": ["array of strings"],
-    "techStack": ["array of strings"]
+    "education": ["array of strings"]
   },
-  "educationAnalysis": "string (detailed evaluation of the candidate's education against the JD)",
-  "experienceAnalysis": "string (detailed evaluation of the candidate's work experience against the JD)",
-  "projectAnalysis": "string (detailed evaluation of the candidate's projects against the JD)",
-  "certificationAnalysis": "string (detailed evaluation of the candidate's certifications against the JD)",
-  "skillGapAnalysis": {
-    "matchedSkills": ["array of strings"],
-    "missingSkills": ["array of strings"],
-    "partiallyMatchedSkills": ["array of strings"],
-    "prioritySkillsToLearn": ["array of strings"]
+
+  "matchPercentage": "number (this will be overwritten, but output a realistic 0-100 number)",
+  "matchScores": {
+    "ats": "number (0-100, purely formatting/ATS check for legacy compatibility)",
+    "skills": "number (0-100)",
+    "experience": "number (0-100)"
+  },
+  "executiveSummary": {
+    "profile": "string (1 paragraph profile)",
+    "suitability": "string (1 paragraph suitability)",
+    "strengths": ["array of strings"],
+    "opportunities": ["array of strings"]
   },
   "atsAnalysis": {
     "score": "number (0-100)",
-    "formatting": "string (evaluation of resume formatting for ATS)",
-    "keywords": "string (evaluation of keyword usage)",
-    "sectionStructure": "string (evaluation of section headings)",
-    "readability": "string (evaluation of readability)",
-    "industryStandards": "string (evaluation against industry norms)",
-    "recommendations": ["array of strings to improve ATS score"]
-  },
-  "keywordAnalysis": {
-    "found": ["array of strings"],
-    "missing": ["array of strings"],
-    "criticalMissing": ["array of strings"],
-    "impactScore": "number (0-100)",
-    "coveragePercentage": "number (0-100)"
-  },
-  "recruiterVerdict": {
-    "verdict": "string (Must be exactly one of: 'Strong Hire', 'Hire', 'Consider', 'Needs Improvement', 'Not Recommended')",
-    "reasoning": "string (detailed reasoning for the verdict)"
-  },
-  "interviewReadiness": {
-    "potentialQuestions": ["array of 3-5 strings"],
-    "technicalTopics": ["array of 3-5 strings"],
-    "conceptsToLearn": ["array of strings"],
     "recommendations": ["array of strings"]
   },
-  "roadmap": {
-    "currentDNA": "string (short description of current career state)",
-    "targetDNA": "string (short description of target state based on JD)",
-    "gapAnalysis": "string (summary of the gap)",
-    "learningRoadmap": ["array of strings (steps to take)"],
-    "recommendedTechnologies": ["array of strings"],
-    "suggestedCertifications": ["array of strings"],
-    "estimatedTimeline": "string (e.g. '3-6 months')",
-    "careerGrowthPath": "string (future career trajectory)"
-  },
-  "actionPlan": {
-    "day30": ["array of strings (tasks for first 30 days)"],
-    "day60": ["array of strings (tasks for day 31-60)"],
-    "day90": ["array of strings (tasks for day 61-90)"]
+  "recruiterVerdict": {
+    "verdict": "string",
+    "reasoning": "string"
   }
 }
 
@@ -111,10 +80,8 @@ Resume (${resumeName}):
 ${resumeText.substring(0, 4000)}`;
 
   try {
-    console.log(`[DEBUG] Groq request started.`);
-    console.log(`[DEBUG] Model name: llama-3.3-70b-versatile`);
-    console.log(`[DEBUG] Prompt size: ${prompt.length} characters`);
-
+    console.log(`[DEBUG] Groq request started for ${resumeName}`);
+    
     const chatCompletion = await groq.chat.completions.create({
       messages: [{ role: 'user', content: prompt }],
       model: 'llama-3.3-70b-versatile',
@@ -122,31 +89,97 @@ ${resumeText.substring(0, 4000)}`;
     });
 
     const responseContent = chatCompletion.choices[0]?.message?.content || '{}';
-    
-    console.log(`[DEBUG] Raw response length: ${responseContent.length} characters`);
-    console.log(`[DEBUG] First 500 characters: ${responseContent.substring(0, 500).replace(/\n/g, ' ')}`);
 
     try {
       const parsed = JSON.parse(responseContent);
-      console.log(`[DEBUG] Parsed JSON success`);
       return parsed;
     } catch (parseError) {
-      console.warn("[DEBUG] Direct JSON parsing failed. Attempting to extract JSON from markdown block.");
-      // Fallback: extract JSON from markdown if Groq included it
-      const jsonMatch = responseContent.match(/```(?:json)?([\s\S]*?)```/);
+      const jsonMatch = responseContent.match(/\`\`\`(?:json)?([\s\S]*?)\`\`\`/);
       if (jsonMatch && jsonMatch[1]) {
-        const parsedFallback = JSON.parse(jsonMatch[1].trim());
-        console.log(`[DEBUG] Parsed JSON success (via markdown extraction)`);
-        return parsedFallback;
+         return JSON.parse(jsonMatch[1].trim());
       }
-      console.error(`[DEBUG] Parsed JSON failure:`, parseError);
-      throw parseError; // Re-throw if extraction fails
+      throw parseError;
     }
   } catch (error: any) {
-    console.error(`[ERROR] Full Groq error:`, error);
-    console.error(`[ERROR] Status code:`, error.status || error.statusCode || 'N/A');
-    console.error(`[ERROR] Response payload:`, error.error || error.response?.data || 'N/A');
-    console.error(`[ERROR] Stack trace:`, error.stack);
-    throw new Error(`AI Analysis failed: ${error.message || 'Unknown Groq error'}`);
+    console.error(`[ERROR] AI Analysis failed:`, error.message);
+    throw new Error(`AI Analysis failed: ${error.message}`);
+  }
+};
+
+export const compareResumes = async (jdText: string, candidatesData: any[]) => {
+  if (!process.env.GROQ_API_KEY) return candidatesData;
+
+  const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
+  
+  // Extract minimal candidate summaries for comparison to fit in context window
+  const candidateSummaries = candidatesData.map(c => ({
+    name: c.candidateName || c.originalName,
+    finalScore: c.finalScore,
+    skills: c.skillsMatched,
+    experience: c.experienceAnalysis,
+    projects: c.projectAnalysis
+  }));
+
+  const prompt = `You are an Expert Technical Recruiter comparing multiple candidates for a specific Job Description.
+Review the candidates and provide ranking reasons and awards. Be strictly objective. Explain WHY a higher ranked candidate beat a lower ranked candidate based on evidence.
+
+Return ONLY a valid JSON object matching this schema:
+{
+  "comparisons": [
+    {
+      "candidateName": "string",
+      "rankingReason": "string (Explain exactly why this candidate deserves their rank compared to others. e.g. 'Beat Candidate B due to superior project evidence in React.')"
+    }
+  ],
+  "awards": {
+    "bestTechnicalCandidate": "string (Candidate Name)",
+    "bestProjectPortfolio": "string (Candidate Name)",
+    "bestIndustryExperience": "string (Candidate Name)",
+    "bestLearningPotential": "string (Candidate Name)",
+    "bestOverallFit": "string (Candidate Name)"
+  }
+}
+
+Job Description:
+${jdText.substring(0, 3000)}
+
+Candidates:
+${JSON.stringify(candidateSummaries)}`;
+
+  try {
+    const chatCompletion = await groq.chat.completions.create({
+      messages: [{ role: 'user', content: prompt }],
+      model: 'llama-3.3-70b-versatile',
+      response_format: { type: "json_object" },
+    });
+
+    const responseContent = chatCompletion.choices[0]?.message?.content || '{}';
+    let parsed: any;
+    try {
+      parsed = JSON.parse(responseContent);
+    } catch(e) {
+      const jsonMatch = responseContent.match(/\`\`\`(?:json)?([\s\S]*?)\`\`\`/);
+      if (jsonMatch && jsonMatch[1]) {
+        parsed = JSON.parse(jsonMatch[1].trim());
+      } else {
+        return candidatesData; // Fallback to returning original data
+      }
+    }
+
+    // Attach ranking reason back to the data
+    const enrichedData = candidatesData.map(c => {
+      const name = c.candidateName || c.originalName;
+      const comp = parsed.comparisons?.find((p: any) => p.candidateName === name);
+      return {
+        ...c,
+        rankingReason: comp ? comp.rankingReason : "Candidate matches profile requirements.",
+        comparisonAwards: parsed.awards || {}
+      };
+    });
+
+    return enrichedData;
+  } catch (error) {
+    console.error('[ERROR] Multi-resume comparison failed:', error);
+    return candidatesData; // Fallback to individual analysis without comparison
   }
 };

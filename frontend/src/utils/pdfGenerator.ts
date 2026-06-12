@@ -248,7 +248,24 @@ export const generateReportPDF = (data: any) => {
     { title: "Experience Analysis", content: cleanText(data.experienceAnalysis) },
     { title: "Project Analysis", content: cleanText(data.projectAnalysis) },
     { title: "Certification Analysis", content: cleanText(data.certificationAnalysis) },
+    { title: "Career Potential", content: cleanText(data.careerPotential) },
+    { title: "Interview Recommendation", content: cleanText(data.interviewRecommendation) },
+    { title: "Ranking Reason", content: cleanText(data.rankingReason) }
   ];
+
+  // Optionally include Comparison Awards if they exist (only for rank 1 or if they won something)
+  if (data.comparisonAwards) {
+    let awardsText = "";
+    if (data.comparisonAwards.bestTechnicalCandidate === data.candidateName) awardsText += "- Best Technical Candidate\n";
+    if (data.comparisonAwards.bestProjectPortfolio === data.candidateName) awardsText += "- Best Project Portfolio\n";
+    if (data.comparisonAwards.bestIndustryExperience === data.candidateName) awardsText += "- Best Industry Experience\n";
+    if (data.comparisonAwards.bestLearningPotential === data.candidateName) awardsText += "- Best Learning Potential\n";
+    if (data.comparisonAwards.bestOverallFit === data.candidateName) awardsText += "- Best Overall Fit\n";
+    
+    if (awardsText) {
+       details.push({ title: "Multi-Resume Comparison Awards", content: cleanText(awardsText) });
+    }
+  }
 
   details.forEach((item) => {
     if (item.content) {

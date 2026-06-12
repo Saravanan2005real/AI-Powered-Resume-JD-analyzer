@@ -59,25 +59,48 @@ export default function Home() {
     setIsGeneratingPdf(true);
     
     try {
-      // Import dynamically to avoid SSR issues if necessary, but here we can just import at top.
-      const { generateReportPDF } = await import('@/utils/pdfGenerator');
+      const response = await fetch('http://localhost:5000/api/generate-pdf', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(analysisData),
+      });
+
+      if (!response.ok) {
+        const errData = await response.json().catch(() => ({}));
+        throw new Error(errData.error || 'Failed to generate report from server');
+      }
+
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
       
-      let generatedCount = 0;
-      for (const cand of analysisData) {
-        if (!cand.error) {
-          generateReportPDF(cand);
-          generatedCount++;
-          // Add a small delay between downloads to prevent browser blocking
-          await new Promise(resolve => setTimeout(resolve, 300));
+      const contentDisposition = response.headers.get('Content-Disposition');
+      let filename = 'CareerDNA_Report.pdf';
+      if (contentDisposition && contentDisposition.includes('filename=')) {
+        const match = contentDisposition.match(/filename="?([^"]+)"?/);
+        if (match && match[1]) {
+          filename = match[1];
         }
+      } else if (response.headers.get('Content-Type') === 'application/zip') {
+        filename = 'CareerDNA_Reports.zip';
+      } else {
+        // Fallback for single candidate
+        const safeName = (analysisData[0].candidateName || 'Candidate').replace(/\s+/g, '');
+        filename = `CareerDNA_Report_${safeName}.pdf`;
       }
+
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      window.URL.revokeObjectURL(url);
       
-      if (generatedCount === 0) {
-        alert("No valid reports to download.");
-      }
     } catch (error: any) {
       console.error(error);
-      alert(`Failed to generate report: ${error.message}`);
+      alert(`Failed to download report: ${error.message}`);
     } finally {
       setIsGeneratingPdf(false);
     }
