@@ -1,5 +1,7 @@
 # CareerDNA AI (AI-Powered Resume JD Analyzer)
 
+![CareerDNA Dashboard Preview](docs/dashboard_preview.png)
+
 An advanced, intelligent resume and job description (JD) matching system powered by Groq and Llama 3 AI.
 
 ## Project Overview
@@ -23,6 +25,30 @@ CareerDNA AI follows a modern decoupled client-server architecture.
 5. **Report Generation**: Users can request downloadable PDF reports, which the backend generates and serves individually or as a ZIP archive.
 
 For a comprehensive breakdown of the frontend, backend, AI pipeline, and data flow, please refer to [design.md](./design.md).
+
+### System Architecture Diagram
+
+```mermaid
+graph TD
+    Client[Next.js Frontend] -->|Multipart Form Data| API[Express.js Backend API]
+    
+    subgraph Backend Pipeline
+        API -->|File Uploads| Multer[Multer Middleware]
+        Multer --> Storage[Local Storage /uploads]
+        Storage --> TextExt[Text Extractor Service]
+        TextExt -->|Raw Text| Groq[Groq AI Service]
+        Groq -->|JSON Analysis| Controller[Analyze Controller]
+        Controller -->|Custom Scoring Logic| Controller
+    end
+    
+    Groq <-->|Prompt + Candidate Data| Llama3[Llama-3.3-70B-Versatile]
+    
+    Controller -->|Analysis JSON Array| Client
+    
+    Client -->|Analysis Data JSON| PDFRoute[PDF Generation Route]
+    PDFRoute --> PDFService[PDF Service]
+    PDFService -->|PDF Buffer or ZIP| Client
+```
 
 ## Features
 
