@@ -1,8 +1,34 @@
 # CareerDNA AI (AI-Powered Resume JD Analyzer)
 
-![CareerDNA Dashboard Preview](docs/dashboard_preview.png)
-
 An advanced, intelligent resume and job description (JD) matching system powered by Groq and Llama 3 AI.
+
+## Application Workflow
+
+```mermaid
+flowchart TD
+    subgraph Inputs
+    A["📄 Upload Job Description"]
+    B["📑 Upload up to 5 Resumes"]
+    end
+    
+    subgraph Processing
+    C["⚙️ Extract & Parse Text"]
+    D["🧠 Groq AI Evidence Evaluation"]
+    E["📊 Score & Rank Candidates"]
+    end
+    
+    subgraph Outputs
+    F["💻 Interactive Dashboard"]
+    G["📥 Download PDF Reports"]
+    end
+    
+    A --> C
+    B --> C
+    C --> D
+    D --> E
+    E --> F
+    F --> G
+```
 
 ## Project Overview
 
