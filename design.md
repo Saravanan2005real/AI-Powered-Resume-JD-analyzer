@@ -6,24 +6,24 @@ CareerDNA AI is an intelligent recruiting and talent intelligence platform. The 
 ## 2. High-Level Architecture Diagram
 ```mermaid
 graph TD
-    Client[Next.js Frontend] -->|Multipart Form Data (JD + Resumes)| API[Express.js Backend API]
+    Client["Next.js Frontend"] -->|"Multipart Form Data (JD + Resumes)"| API["Express.js Backend API"]
     
     subgraph Backend Pipeline
-        API -->|File Uploads| Multer[Multer Middleware]
-        Multer --> Storage[Local Storage /uploads]
-        Storage --> TextExt[Text Extractor Service]
-        TextExt -->|Raw Text| Groq[Groq AI Service]
-        Groq -->|JSON Analysis| Controller[Analyze Controller]
-        Controller -->|Custom Scoring Logic| Controller
+        API -->|"File Uploads"| Multer["Multer Middleware"]
+        Multer --> Storage["Local Storage /uploads"]
+        Storage --> TextExt["Text Extractor Service"]
+        TextExt -->|"Raw Text"| Groq["Groq AI Service"]
+        Groq -->|"JSON Analysis"| Controller["Analyze Controller"]
+        Controller -->|"Custom Scoring Logic"| Controller
     end
     
-    Groq <-->|Prompt + Candidate Data| Llama3[Llama-3.3-70B-Versatile]
+    Groq <-->|"Prompt + Candidate Data"| Llama3["Llama-3.3-70B-Versatile"]
     
-    Controller -->|Analysis JSON Array| Client
+    Controller -->|"Analysis JSON Array"| Client
     
-    Client -->|Analysis Data JSON| PDFRoute[PDF Generation Route]
-    PDFRoute --> PDFService[PDF Service]
-    PDFService -->|PDF Buffer or ZIP| Client
+    Client -->|"Analysis Data JSON"| PDFRoute["PDF Generation Route"]
+    PDFRoute --> PDFService["PDF Service"]
+    PDFService -->|"PDF Buffer or ZIP"| Client
 ```
 
 ## 3. Frontend Architecture (Next.js)
