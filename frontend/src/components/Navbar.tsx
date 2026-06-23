@@ -43,7 +43,7 @@ export default function Navbar() {
               Dashboard
             </Link>
             <Link 
-              href="/developer" 
+              href="/developers" 
               className="text-sm font-semibold tracking-wide text-gray-300 hover:text-white hover:drop-shadow-[0_0_8px_rgba(255,255,255,0.8)] transition-all"
             >
               Developer

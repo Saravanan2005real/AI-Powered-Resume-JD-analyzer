@@ -1,16 +1,33 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import UploadPortal from "@/components/UploadPortal";
+import { motion } from "framer-motion";
+import GlassCard from "@/components/ui/GlassCard";
+import DNALoader from "@/components/ui/DNALoader";
 
 type AppState = "upload" | "loading" | "results";
 
 export default function Home() {
+  const [showLoader, setShowLoader] = useState(true);
   const [appState, setAppState] = useState<AppState>("upload");
   const [jdFiles, setJdFiles] = useState<File[]>([]);
   const [resumeFiles, setResumeFiles] = useState<File[]>([]);
   const [analysisData, setAnalysisData] = useState<any[]>([]);
   const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
+
+  useEffect(() => {
+    // Only show on first load per session
+    const hasLoaded = sessionStorage.getItem('careerDNA_loader_shown');
+    if (hasLoaded) {
+      setShowLoader(false);
+    }
+  }, []);
+
+  const handleLoaderComplete = () => {
+    sessionStorage.setItem('careerDNA_loader_shown', 'true');
+    setShowLoader(false);
+  };
 
   const handleAnalyze = async () => {
     if (jdFiles.length === 0 || resumeFiles.length === 0) {
@@ -114,18 +131,26 @@ export default function Home() {
   };
 
   return (
-    <div className="flex flex-col items-center justify-start min-h-[calc(100vh-4rem)] p-4 sm:p-8 pt-12">
+    <>
+      {showLoader && <DNALoader onComplete={handleLoaderComplete} />}
+      
+      <div className={`flex flex-col items-center justify-start min-h-[calc(100vh-4rem)] p-4 sm:p-8 pt-12 transition-opacity duration-1000 ${showLoader ? 'opacity-0 overflow-hidden h-screen pointer-events-none' : 'opacity-100'}`}>
       <div className="max-w-7xl w-full mx-auto">
         
         {appState === "upload" && (
-          <div className="space-y-12 animate-in fade-in duration-700">
+          <motion.div 
+            initial={{ opacity: 0, y: 20 }} 
+            animate={{ opacity: 1, y: 0 }} 
+            transition={{ duration: 0.7 }} 
+            className="space-y-12"
+          >
             {/* Header Section */}
             <div className="text-center space-y-6">
-              <h1 className="text-5xl md:text-7xl font-extrabold tracking-tighter text-transparent bg-clip-text bg-gradient-to-r from-primary via-white to-secondary drop-shadow-[0_0_20px_rgba(14,165,233,0.5)]">
-                Decode Your Career DNA
+              <h1 className="text-5xl md:text-7xl font-extrabold tracking-tighter text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 via-white to-purple-500 drop-shadow-sm">
+                CareerDNA AI
               </h1>
               <p className="text-lg md:text-xl text-gray-300 max-w-3xl mx-auto leading-relaxed">
-                Upload a Job Description and your Resume to unlock AI-powered semantic matching, keyword intelligence, and personalized career insights.
+                Decode Your Career Genome with AI-Powered Resume Intelligence
               </p>
             </div>
 
@@ -163,7 +188,7 @@ export default function Home() {
               <button 
                 onClick={handleAnalyze}
                 disabled={jdFiles.length === 0 || resumeFiles.length === 0}
-                className="group relative px-8 py-4 w-full sm:w-auto font-bold text-white rounded-full bg-gradient-to-r from-primary to-secondary overflow-hidden transition-all duration-500 transform shadow-[0_0_20px_rgba(14,165,233,0.5)] hover:shadow-[0_0_40px_rgba(168,85,247,0.7)] hover:-translate-y-1 disabled:opacity-50 disabled:hover:translate-y-0 disabled:hover:shadow-none"
+                className="group relative px-8 py-4 w-full sm:w-auto font-bold text-white rounded-full bg-gradient-to-r from-primary to-secondary overflow-hidden transition-all duration-300 transform shadow-[0_0_10px_rgba(14,165,233,0.2)] hover:shadow-[0_0_15px_rgba(168,85,247,0.3)] hover:-translate-y-1 disabled:opacity-50 disabled:hover:translate-y-0 disabled:hover:shadow-none will-change-transform"
               >
                 <span className="absolute inset-0 w-full h-full bg-white/20 group-hover:scale-105 transition-transform duration-300 ease-out"></span>
                 <span className="relative flex items-center justify-center gap-2 text-lg tracking-wide">
@@ -187,11 +212,16 @@ export default function Home() {
                 </span>
               </button>
             </div>
-          </div>
+          </motion.div>
         )}
 
         {appState === "loading" && (
-          <div className="flex flex-col items-center justify-center min-h-[60vh] space-y-8 animate-in fade-in zoom-in duration-500">
+          <motion.div 
+            initial={{ opacity: 0, scale: 0.95 }} 
+            animate={{ opacity: 1, scale: 1 }} 
+            transition={{ duration: 0.5 }} 
+            className="flex flex-col items-center justify-center min-h-[60vh] space-y-8"
+          >
             <div className="relative w-32 h-32 flex items-center justify-center">
               <div className="absolute inset-0 rounded-full border-t-4 border-primary border-r-4 border-r-transparent animate-spin"></div>
               <div className="absolute inset-2 rounded-full border-b-4 border-secondary border-l-4 border-l-transparent animate-spin animation-delay-200"></div>
@@ -203,14 +233,19 @@ export default function Home() {
             </div>
             <h2 className="text-2xl font-bold text-white text-center">Decoding Career DNA...</h2>
             <p className="text-gray-400 text-center max-w-md">Extracting semantic meaning, matching skills, and ranking candidate suitability. This may take up to a minute.</p>
-          </div>
+          </motion.div>
         )}
 
         {appState === "results" && analysisData && analysisData.length > 0 && (
-          <div className="flex flex-col items-center justify-center min-h-[50vh] space-y-10 animate-in fade-in zoom-in duration-700 w-full pb-20">
+          <motion.div 
+            initial={{ opacity: 0, y: 20 }} 
+            animate={{ opacity: 1, y: 0 }} 
+            transition={{ duration: 0.7 }} 
+            className="flex flex-col items-center justify-center min-h-[50vh] space-y-10 w-full pb-20"
+          >
             
             <div className="flex flex-col items-center justify-center space-y-6 mt-10">
-              <div className="w-24 h-24 bg-emerald-500/20 rounded-full flex items-center justify-center border-2 border-emerald-500/50 shadow-[0_0_30px_rgba(16,185,129,0.3)]">
+              <div className="w-24 h-24 bg-emerald-500/10 rounded-full flex items-center justify-center border border-emerald-500/20 shadow-[0_0_15px_rgba(16,185,129,0.15)]">
                 <svg className="w-12 h-12 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M5 13l4 4L19 7"></path>
                 </svg>
@@ -226,7 +261,7 @@ export default function Home() {
             </div>
 
             {/* Dynamic Rankings Display */}
-            <div className="w-full max-w-2xl bg-white/5 border border-white/10 rounded-2xl p-6 backdrop-blur-md shadow-2xl">
+            <GlassCard glowColor="accent" className="w-full max-w-2xl p-6 shadow-2xl">
               <h3 className="text-xl font-bold text-white mb-4 flex items-center gap-2">
                 <svg className="w-6 h-6 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
@@ -272,13 +307,13 @@ export default function Home() {
                   );
                 })}
               </div>
-            </div>
+            </GlassCard>
 
             <div className="flex flex-col sm:flex-row items-center justify-center gap-6 mt-8 w-full max-w-2xl">
               <button 
                 onClick={handleDownloadReport}
                 disabled={isGeneratingPdf}
-                className="group relative px-8 py-4 font-bold text-white text-lg rounded-full bg-gradient-to-r from-primary to-secondary overflow-hidden transition-all duration-500 transform shadow-[0_0_20px_rgba(14,165,233,0.4)] hover:shadow-[0_0_40px_rgba(168,85,247,0.6)] hover:-translate-y-1 disabled:opacity-50 disabled:hover:translate-y-0 disabled:hover:shadow-none w-full sm:w-auto flex-1"
+                className="group relative px-8 py-4 font-bold text-white text-lg rounded-full bg-gradient-to-r from-primary to-secondary overflow-hidden transition-all duration-300 transform shadow-[0_0_10px_rgba(14,165,233,0.2)] hover:shadow-[0_0_15px_rgba(168,85,247,0.3)] hover:-translate-y-1 disabled:opacity-50 disabled:hover:translate-y-0 disabled:hover:shadow-none w-full sm:w-auto flex-1 will-change-transform"
               >
                 <span className="absolute inset-0 w-full h-full bg-white/20 group-hover:scale-105 transition-transform duration-300 ease-out"></span>
                 <span className="relative flex items-center justify-center gap-3 tracking-wide">
@@ -302,10 +337,11 @@ export default function Home() {
                 New Analysis
               </button>
             </div>
-          </div>
+          </motion.div>
         )}
 
       </div>
     </div>
+    </>
   );
 }

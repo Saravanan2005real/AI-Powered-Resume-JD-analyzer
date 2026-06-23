@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import GlassCard from "./ui/GlassCard";
 
 interface UploadPortalProps {
   title: string;
@@ -67,10 +68,10 @@ export default function UploadPortal({
   };
 
   return (
-    <div className="flex flex-col h-full glass-panel neon-border rounded-2xl p-8 relative overflow-hidden group transition-all duration-500 hover:-translate-y-1 hover:shadow-[0_10px_40px_rgba(14,165,233,0.15)] bg-black/20">
+    <GlassCard glowColor={title.includes("Job") ? "primary" : "secondary"} className="flex flex-col h-full p-8">
       {/* Decorative gradient blobs */}
-      <div className="absolute -top-24 -right-24 w-64 h-64 bg-primary/10 rounded-full blur-[80px] group-hover:bg-primary/30 group-hover:scale-110 transition-all duration-700"></div>
-      <div className="absolute -bottom-24 -left-24 w-64 h-64 bg-secondary/10 rounded-full blur-[80px] group-hover:bg-secondary/30 group-hover:scale-110 transition-all duration-700"></div>
+      <div className="absolute -top-24 -right-24 w-64 h-64 bg-primary/10 rounded-full blur-[80px] group-hover:bg-primary/20 group-hover:scale-110 transition-all duration-700 pointer-events-none"></div>
+      <div className="absolute -bottom-24 -left-24 w-64 h-64 bg-secondary/10 rounded-full blur-[80px] group-hover:bg-secondary/20 group-hover:scale-110 transition-all duration-700 pointer-events-none"></div>
       
       <div className="relative z-10 flex flex-col items-center justify-center text-center">
         <div className="w-16 h-16 mb-6 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center text-primary group-hover:scale-110 group-hover:text-white transition-all duration-500 shadow-[0_0_15px_rgba(14,165,233,0.2)] group-hover:shadow-[0_0_25px_rgba(168,85,247,0.4)]">
@@ -142,6 +143,6 @@ export default function UploadPortal({
           )}
         </div>
       </div>
-    </div>
+    </GlassCard>
   );
 }
