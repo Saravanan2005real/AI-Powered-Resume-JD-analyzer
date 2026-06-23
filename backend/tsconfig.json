@@ -9,8 +9,7 @@
     "strict": false,
     "skipLibCheck": true,
     "moduleResolution": "node",
-    "resolveJsonModule": true,
-    "ignoreDeprecations": "6.0"
+    "resolveJsonModule": true
   },
   "include": ["**/*.ts"],
   "exclude": ["node_modules", "dist"]

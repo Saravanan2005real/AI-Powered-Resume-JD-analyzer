@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import { extractTextFromFile } from '../services/textExtractor';
-import { analyzeResume, compareResumes } from '../services/groqService';
+import { analyzeResume, compareResumes } from '../services/geminiService';
+import { calculateDeterministicScores } from '../services/scoringService';
 import fs from 'fs';
 import { generateProfessionalPdf } from '../services/pdfService';
 const archiver = require('archiver');
@@ -63,33 +64,65 @@ export const analyzeFiles = async (req: Request, res: Response): Promise<void> =
           throw new Error(`Failed to extract text: ${resExtError.message || 'Unknown extraction error'}`);
         }
 
-        console.log(`[DEBUG] Sending to Groq API for: ${resume.originalname}`);
-        const analysis = await analyzeResume(jdText, resumeText, resume.originalname);
-        
-        // Calculate Backend Final Score
-        const skillMatch = Number(analysis.skillMatchScore) || 0;
-        const projectScore = Number(analysis.projectScore) || 0;
-        const internshipScore = Number(analysis.internshipScore) || 0;
-        const techDepth = Number(analysis.technicalDepthScore) || 0;
-        const education = Number(analysis.educationScore) || 0;
-        const certification = Number(analysis.certificationScore) || 0;
-        const growth = Number(analysis.growthPotentialScore) || 0;
+        // Wait a few seconds between requests to avoid Gemini Free Tier rate limits (15 RPM)
+        if (results.length > 0) {
+          console.log(`[DEBUG] Waiting 4 seconds before processing next resume to respect rate limits...`);
+          await new Promise(resolve => setTimeout(resolve, 4000));
+        }
 
-        const finalScore = Math.round(
-          (skillMatch * 0.30) +
-          (projectScore * 0.25) +
-          (internshipScore * 0.20) +
-          (techDepth * 0.10) +
-          (education * 0.05) +
-          (certification * 0.05) +
-          (growth * 0.05)
-        );
+        console.log(`[DEBUG] Sending to Gemini API for: ${resume.originalname}`);
+        
+        let analysis: any;
+        let retries = 2;
+        while (retries > 0) {
+          try {
+            analysis = await analyzeResume(jdText, resumeText, resume.originalname);
+            break;
+          } catch (apiErr: any) {
+            retries--;
+            console.error(`[WARN] Gemini API Error for ${resume.originalname}, retries left: ${retries}. Error: ${apiErr.message}`);
+            if (retries === 0) throw apiErr;
+            // Wait longer before retry
+            await new Promise(resolve => setTimeout(resolve, 5000));
+          }
+        }
+        
+        if (!analysis || !analysis.candidateName) {
+           throw new Error('Validation Error: Invalid JSON returned from Gemini (missing candidateName)');
+        }
+
+        console.log(`[DEBUG] Calculating deterministic scores for: ${resume.originalname}`);
+        const scores = calculateDeterministicScores(analysis);
+        
+        const finalScore = scores.finalScore || 0;
+
+        // Map new schema fields to legacy fields for backward compatibility with frontend
+        analysis.skillsMatched = analysis.skillMatrix?.map((s: any) => s.skill) || [];
+        analysis.missingSkills = [
+          ...(analysis.missingSkills?.critical || []),
+          ...(analysis.missingSkills?.important || []),
+          ...(analysis.missingSkills?.optional || [])
+        ];
+        analysis.careerPotential = analysis.careerGrowthPotential || '';
+        analysis.recommendations = analysis.improvementSuggestions || [];
+        analysis.verdict = analysis.finalVerdict || '';
+        analysis.atsScore = scores.atsScore || 0;
+        if (!analysis.atsAnalysis) analysis.atsAnalysis = { score: analysis.atsScore, recommendations: [] };
+        
+        // Convert complex project/internship structures to strings for legacy UI
+        analysis.projectAnalysis = analysis.projects?.map((p: any) => p.projectName).join(', ') || 'No specific projects found.';
+        analysis.experienceAnalysis = `Highly Relevant: ${analysis.internships?.highlyRelevant?.length || 0}, Moderately Relevant: ${analysis.internships?.moderatelyRelevant?.length || 0}`;
+        analysis.certificationAnalysis = analysis.certifications?.map((c: any) => c.certification).join(', ') || 'None';
 
         // Map final score to matchPercentage to ensure legacy frontend UI compatibility
         analysis.finalScore = finalScore;
         analysis.matchPercentage = finalScore;
+        analysis.calculatedScores = scores; // Provide detailed scores for PDF gen
         if (!analysis.matchScores) analysis.matchScores = {};
         analysis.matchScores.overall = finalScore;
+        
+        // Expose processed arrays for PDF Service
+        analysis.processedArrays = scores.processedArrays;
 
         console.log(`[DEBUG] Received valid analysis for: ${resume.originalname}, Final Score: ${finalScore}%`);
         

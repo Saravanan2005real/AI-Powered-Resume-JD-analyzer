@@ -3,7 +3,8 @@ const PDFDocument = require('pdfkit');
 export const generateProfessionalPdf = (data: any): Promise<Buffer> => {
   return new Promise((resolve, reject) => {
     try {
-      const doc = new PDFDocument({ margin: 40, size: 'A4', bufferPages: true });
+      // autoFirstPage: true is default, bufferPages: true for footers
+      const doc = new PDFDocument({ margin: 40, size: 'A4', bufferPages: true, autoFirstPage: true });
       const buffers: Buffer[] = [];
       
       doc.on('data', buffers.push.bind(buffers));
@@ -12,7 +13,6 @@ export const generateProfessionalPdf = (data: any): Promise<Buffer> => {
       });
       doc.on('error', reject);
 
-      // Colors matching Screenshot 2
       const DARK_BLUE = '#0f172a';
       const CYAN = '#0ea5e9';
       const TEXT_MAIN = '#1e293b';
@@ -40,257 +40,250 @@ export const generateProfessionalPdf = (data: any): Promise<Buffer> => {
       };
 
       const checkPageBreak = (heightNeeded: number) => {
-        if (doc.y + heightNeeded > 780) {
+        // More conservative margin to prevent text wrapping triggering an automatic blank page
+        if (doc.y + heightNeeded > 730) {
           doc.addPage();
         }
       };
 
       const addSectionHeader = (title: string) => {
         checkPageBreak(50);
-        doc.moveDown(1);
         const startY = doc.y;
         doc.rect(40, startY, 515, 25).fill(DARK_BLUE);
         doc.fill('#ffffff').fontSize(12).font('Helvetica-Bold').text(title, 50, startY + 7);
-        doc.y = startY + 35; // Advance past the rect
+        doc.y = startY + 35; 
       };
 
       // --- Page Header ---
       doc.rect(0, 0, 595, 100).fill(DARK_BLUE);
       
       doc.fill(CYAN).fontSize(28).font('Helvetica-Bold').text('CareerDNA AI', 40, 30);
-      doc.fill('#ffffff').fontSize(14).font('Helvetica').text('Analysis Report', 40, 65);
+      doc.fill('#ffffff').fontSize(14).font('Helvetica').text('Evidence-Based Analysis Report', 40, 65);
       
       const candidateName = cleanText(data.candidateName) || "Candidate";
       doc.fill('#ffffff').fontSize(12).font('Helvetica-Bold').text(candidateName, 300, 35, { align: 'right', width: 255 });
       doc.fill('#cccccc').fontSize(10).font('Helvetica').text(`Date: ${new Date().toLocaleString()}`, 300, 65, { align: 'right', width: 255 });
 
-      doc.y = 130;
+      doc.y = 120;
 
       // --- Section 1: Overall Analysis (Cards) ---
       checkPageBreak(100);
       const cardWidth = 150;
-      const cardSpacing = 32.5; // (515 - 450) / 2 = 32.5
+      const cardSpacing = 32.5;
       let startX = 40;
       const currentY = doc.y;
 
-      // Match Score
       doc.rect(startX, currentY, cardWidth, 65).fillAndStroke(BG_LIGHT, CYAN);
       doc.fill(TEXT_MUTED).fontSize(11).font('Helvetica').text('Match Score', startX, currentY + 15, { width: cardWidth, align: 'center' });
-      doc.fill(CYAN).fontSize(22).font('Helvetica-Bold').text(`${data.matchPercentage || data.finalScore || 0}%`, startX, currentY + 35, { width: cardWidth, align: 'center' });
+      doc.fill(CYAN).fontSize(22).font('Helvetica-Bold').text(`${data.finalScore || data.matchPercentage || 0}%`, startX, currentY + 35, { width: cardWidth, align: 'center' });
 
-      // ATS Score
       startX += cardWidth + cardSpacing;
-      const atsScore = data.atsAnalysis?.score || data.matchScores?.ats || data.atsScore || 0;
       doc.rect(startX, currentY, cardWidth, 65).fillAndStroke(CYAN, CYAN);
-      doc.fill('#ffffff').fontSize(11).font('Helvetica').text('ATS Score', startX, currentY + 15, { width: cardWidth, align: 'center' });
-      doc.fill('#ffffff').fontSize(22).font('Helvetica-Bold').text(`${atsScore}%`, startX, currentY + 35, { width: cardWidth, align: 'center' });
+      doc.fill('#ffffff').fontSize(11).font('Helvetica').text('ATS Quality Score', startX, currentY + 15, { width: cardWidth, align: 'center' });
+      doc.fill('#ffffff').fontSize(22).font('Helvetica-Bold').text(`${data.calculatedScores?.atsScore || data.atsScore || 0}%`, startX, currentY + 35, { width: cardWidth, align: 'center' });
 
-      // Resume Rank
       startX += cardWidth + cardSpacing;
       doc.rect(startX, currentY, cardWidth, 65).fillAndStroke(CYAN, CYAN);
       doc.fill('#ffffff').fontSize(11).font('Helvetica').text('Resume Rank', startX, currentY + 15, { width: cardWidth, align: 'center' });
       doc.fill('#ffffff').fontSize(22).font('Helvetica-Bold').text(`#${data.rank || 1}`, startX, currentY + 35, { width: cardWidth, align: 'center' });
 
-      doc.y = currentY + 95;
+      doc.y = currentY + 85;
 
-      // --- Section 2: Skills Analysis ---
-      const matchedSkills = data.skillGapAnalysis?.matchedSkills || data.skillsMatched || data.resumeAnalysis?.skills || [];
-      const missingSkills = data.skillGapAnalysis?.missingSkills || data.missingSkills || [];
-
-      if (matchedSkills.length > 0 || missingSkills.length > 0) {
-        addSectionHeader('Skills Analysis');
+      // Score Breakdown Section
+      if (data.calculatedScores) {
+        addSectionHeader('Deterministic Score Breakdown');
+        const scores = data.calculatedScores;
+        const weights = scores.weights || { skillWeight: 0.35, projectWeight: 0.20, internshipWeight: 0.15, certWeight: 0.10, eduWeight: 0.10, atsWeight: 0.10 };
         
-        const matchText = matchedSkills.length > 0 ? matchedSkills.map((s: string) => `+ ${cleanText(s)}`).join('\n') : 'None';
-        const missingText = missingSkills.length > 0 ? missingSkills.map((s: string) => `- ${cleanText(s)}`).join('\n') : 'None';
+        doc.fontSize(10).font('Helvetica');
+        const renderScore = (label: string, weight: number, score: number, yPos: number, xPos: number) => {
+           const wText = Math.round(weight * 100);
+           const valText = weight > 0 ? `${score}%` : 'N/A';
+           doc.fill(TEXT_MAIN).text(`${label} (${wText}%): `, xPos, yPos, { continued: true }).fill(CYAN).font('Helvetica-Bold').text(valText);
+           doc.font('Helvetica');
+        };
 
-        const startY = doc.y;
-        doc.rect(40, startY, 515, 20).fill('#f8fafc');
-        doc.rect(40, startY, 515, 20).stroke('#e2e8f0');
+        checkPageBreak(30);
+        renderScore('Skill Match', weights.skillWeight, scores.skillMatchScore, doc.y, 50);
+        renderScore('Project Relevance', weights.projectWeight, scores.projectScore, doc.y, 300);
+        doc.y += 20;
         
-        doc.fill(DARK_BLUE).fontSize(10).font('Helvetica-Bold').text('Matching Skills', 50, startY + 6);
-        doc.text('Missing Skills', 40 + 515/2 + 10, startY + 6);
-
-        const colWidth = 515/2 - 20;
-        doc.font('Helvetica').fontSize(10);
-        const h1 = doc.heightOfString(matchText, { width: colWidth });
-        const h2 = doc.heightOfString(missingText, { width: colWidth });
-        const rowHeight = Math.max(h1, h2) + 20;
+        renderScore('Experience Relevance', weights.internshipWeight, scores.internshipScore, doc.y, 50);
+        renderScore('Certification Relevance', weights.certWeight, scores.certificationScore, doc.y, 300);
+        doc.y += 20;
         
-        checkPageBreak(rowHeight + 30);
-        const contentY = startY + 20;
-        
-        // Save current doc.y before drawing table to restore it after
-        doc.rect(40, contentY, 515, rowHeight).stroke('#e2e8f0');
-        doc.moveTo(40 + 515/2, contentY).lineTo(40 + 515/2, contentY + rowHeight).stroke('#e2e8f0');
-
-        doc.fill(GREEN).text(matchText, 50, contentY + 10, { width: colWidth });
-        doc.fill(RED).text(missingText, 40 + 515/2 + 10, contentY + 10, { width: colWidth });
-
-        doc.y = contentY + rowHeight + 20;
+        renderScore('Education Match', weights.eduWeight, scores.educationScore, doc.y, 50);
+        renderScore('ATS Quality', weights.atsWeight, scores.atsScore, doc.y, 300);
+        doc.y += 30;
       }
 
-      // --- Section 3: Strengths & Weaknesses ---
-      const strengths = data.executiveSummary?.strengths || data.strengths || [];
-      const weaknesses = data.executiveSummary?.opportunities || data.weaknesses || [];
-
-      if (strengths.length > 0 || weaknesses.length > 0) {
-        addSectionHeader('Strengths & Weaknesses');
-        
-        const strengthsText = strengths.length > 0 ? strengths.map((s: string) => `- ${cleanText(s)}`).join('\n') : 'None';
-        const weaknessesText = weaknesses.length > 0 ? weaknesses.map((s: string) => `- ${cleanText(s)}`).join('\n') : 'None';
-
-        const startY = doc.y;
-        doc.rect(40, startY, 515, 20).fill('#f8fafc');
-        doc.rect(40, startY, 515, 20).stroke('#e2e8f0');
-        
-        doc.fill(DARK_BLUE).fontSize(10).font('Helvetica-Bold').text('Core Strengths', 50, startY + 6);
-        doc.text('Areas of Improvement', 40 + 515/2 + 10, startY + 6);
-
-        const colWidth = 515/2 - 20;
-        doc.font('Helvetica').fontSize(10);
-        const h1 = doc.heightOfString(strengthsText, { width: colWidth });
-        const h2 = doc.heightOfString(weaknessesText, { width: colWidth });
-        const rowHeight = Math.max(h1, h2) + 20;
-        
-        checkPageBreak(rowHeight + 30);
-        const contentY = startY + 20;
-        
-        doc.rect(40, contentY, 515, rowHeight).stroke('#e2e8f0');
-        doc.moveTo(40 + 515/2, contentY).lineTo(40 + 515/2, contentY + rowHeight).stroke('#e2e8f0');
-
-        doc.fill(TEXT_MAIN).text(strengthsText, 50, contentY + 10, { width: colWidth });
-        doc.fill(TEXT_MAIN).text(weaknessesText, 40 + 515/2 + 10, contentY + 10, { width: colWidth });
-
-        doc.y = contentY + rowHeight + 20;
+      // --- Section 2: Executive Summary ---
+      if (data.executiveSummary) {
+         addSectionHeader('Executive Summary');
+         checkPageBreak(50);
+         doc.fill(TEXT_MAIN).fontSize(10).font('Helvetica').text(cleanText(data.executiveSummary), 40, doc.y, { width: 515, lineGap: 3 });
+         doc.y += 15;
       }
 
-      // --- Section 4: Evidence Deep Dive ---
-      const projects = data.scoreEvidence?.projects || data.resumeAnalysis?.projects || [];
-      const internships = data.scoreEvidence?.internships || data.resumeAnalysis?.experience || [];
-      const certifications = data.scoreEvidence?.certifications || data.resumeAnalysis?.certifications || [];
-
-      if (projects.length > 0 || internships.length > 0 || certifications.length > 0) {
-        addSectionHeader('Evidence Deep Dive');
-        
-        if (projects.length > 0) {
-          doc.fill(DARK_BLUE).fontSize(11).font('Helvetica-Bold').text('Relevant Projects (Evidence):', 40, doc.y);
-          doc.moveDown(0.5);
-          projects.forEach((p: string) => {
-            checkPageBreak(15);
-            doc.x = 40;
-            doc.fill(TEXT_MAIN).fontSize(10).font('Helvetica').text(`• ${cleanText(p)}`, { width: 515, lineGap: 3, indent: 10 });
-          });
-          doc.moveDown(1);
-        }
-
-        if (internships.length > 0) {
-          checkPageBreak(30);
-          doc.fill(DARK_BLUE).fontSize(11).font('Helvetica-Bold').text('Relevant Internship / Experience (Evidence):', 40, doc.y);
-          doc.moveDown(0.5);
-          internships.forEach((p: string) => {
-            checkPageBreak(15);
-            doc.x = 40;
-            doc.fill(TEXT_MAIN).fontSize(10).font('Helvetica').text(`• ${cleanText(p)}`, { width: 515, lineGap: 3, indent: 10 });
-          });
-          doc.moveDown(1);
-        }
-
-        if (certifications.length > 0) {
-          checkPageBreak(30);
-          doc.fill(DARK_BLUE).fontSize(11).font('Helvetica-Bold').text('Certifications (Evidence):', 40, doc.y);
-          doc.moveDown(0.5);
-          certifications.forEach((p: string) => {
-            checkPageBreak(15);
-            doc.x = 40;
-            doc.fill(TEXT_MAIN).fontSize(10).font('Helvetica').text(`• ${cleanText(p)}`, { width: 515, lineGap: 3, indent: 10 });
-          });
-          doc.moveDown(1);
-        }
+      // --- Section 3: Ranking Reason ---
+      if (data.rankingReason) {
+         addSectionHeader('Ranking Reason');
+         checkPageBreak(50);
+         doc.fill(TEXT_MAIN).fontSize(10).font('Helvetica').text(cleanText(data.rankingReason), 40, doc.y, { width: 515, lineGap: 3 });
+         doc.y += 15;
       }
 
-      // --- Section 5: Detailed Analysis ---
-      addSectionHeader('Detailed Analysis');
-
-      const details = [
-        { title: "Candidate Overview", content: cleanText(data.candidateOverview || data.executiveSummary?.overview) },
-        { title: "Match Analysis", content: cleanText(data.matchAnalysis || data.rankingReason) },
-        { title: "ATS Analysis", content: cleanText(data.atsAnalysis?.details || data.atsAnalysis?.feedback) },
-        { title: "Education Analysis", content: cleanText(data.educationAnalysis) },
-        { title: "Experience Relevance", content: cleanText(data.experienceAnalysis) },
-        { title: "Project Relevance", content: cleanText(data.projectAnalysis) },
-        { title: "Certification Relevance", content: cleanText(data.certificationAnalysis) },
-        { title: "Career Growth Potential", content: cleanText(data.careerPotential) },
-        { title: "Interview Recommendation", content: cleanText(data.interviewRecommendation) },
-      ];
-
-      // Comparison Awards
-      if (data.comparisonAwards) {
-        let awardsText = "";
-        const name = data.candidateName || data.originalName;
-        if (data.comparisonAwards.bestTechnicalCandidate === name) awardsText += "- Best Technical Candidate\n";
-        if (data.comparisonAwards.bestProjectPortfolio === name) awardsText += "- Best Project Portfolio\n";
-        if (data.comparisonAwards.bestIndustryExperience === name) awardsText += "- Best Industry Experience\n";
-        if (data.comparisonAwards.bestLearningPotential === name) awardsText += "- Best Learning Potential\n";
-        if (data.comparisonAwards.bestOverallFit === name) awardsText += "- Best Overall Fit\n";
+      // --- Section 4: Top Relevant Skills ---
+      if (data.skillMatrix && data.skillMatrix.length > 0) {
+        addSectionHeader('Top Relevant Skills');
+        doc.fill(DARK_BLUE).fontSize(10).font('Helvetica-Bold');
+        doc.text('Skill', 40, doc.y, { width: 150, continued: true }).text('Confidence', 190, doc.y, { width: 80, continued: true }).text('Evidence Found', 270, doc.y);
+        doc.y += doc.currentLineHeight() * 0.5;
         
-        if (awardsText) {
-           details.push({ title: "Multi-Resume Comparison Awards", content: cleanText(awardsText) });
-        }
-      }
-
-      details.forEach((item) => {
-        if (item.content) {
-          checkPageBreak(80);
-          doc.x = 40;
-          doc.fill(DARK_BLUE).fontSize(11).font('Helvetica-Bold').text(item.title);
-          doc.moveDown(0.5);
-          doc.x = 40;
-          doc.fill(TEXT_MAIN).fontSize(10).font('Helvetica').text(item.content, { width: 515, align: 'justify', lineGap: 3 });
-          doc.moveDown(1.5);
-        }
-      });
-
-      // --- Section 6: Recommendations ---
-      const recommendations = data.atsAnalysis?.recommendations || data.recommendations || [];
-      if (recommendations.length > 0) {
-        addSectionHeader('Improvement Suggestions');
-        recommendations.forEach((r: string) => {
-           checkPageBreak(20);
-           doc.x = 40;
-           doc.fill(TEXT_MAIN).fontSize(10).font('Helvetica').text(`• ${cleanText(r)}`, { width: 515, lineGap: 3, indent: 10 });
+        data.skillMatrix.forEach((sm: any) => {
+          const skillText = cleanText(sm.skill);
+          const evidenceText = cleanText(sm.evidence);
+          doc.fontSize(10).font('Helvetica-Bold');
+          const h1 = doc.heightOfString(skillText, { width: 140 });
+          doc.font('Helvetica');
+          const h2 = doc.heightOfString(evidenceText, { width: 285 });
+          const rowHeight = Math.max(h1, h2, 15);
+          
+          checkPageBreak(rowHeight + 5);
+          const startY = doc.y;
+          doc.fill(TEXT_MAIN).font('Helvetica-Bold').text(skillText, 40, startY, { width: 140 });
+          const color = sm.confidence === 'Highest' ? GREEN : (sm.confidence === 'High' ? CYAN : (sm.confidence === 'Medium' ? '#eab308' : TEXT_MUTED));
+          doc.fill(color).font('Helvetica').text(cleanText(sm.confidence), 190, startY, { width: 70 });
+          doc.fill(TEXT_MAIN).text(evidenceText, 270, startY, { width: 285 });
+          doc.y = startY + rowHeight + 5;
         });
-        doc.moveDown(1);
       }
 
-      // --- Section 7: Final Verdict ---
-      const verdict = cleanText(data.recruiterVerdict?.verdict || data.verdict || "Analysis Complete");
-      const reasoning = cleanText(
-        data.recruiterVerdict?.reasoning || data.verdictReasoning ||
-        "Candidate matches the profile based on the provided data."
-      );
+      // --- Item Renderer Helper ---
+      const renderItems = (title: string, items: any[], color: string) => {
+        if (!items || items.length === 0) return;
+        addSectionHeader(title);
+        items.forEach((item: any) => {
+           doc.fontSize(10).font('Helvetica');
+           const relevanceText = `JD Relevance Score: ${item.relevanceScore || 0}/100`;
+           const reasonText = `Evidence: ${cleanText(item.evidenceReasoning || item.reason || item.evidence)}`;
+           
+           const reasonH = doc.heightOfString(reasonText, { width: 505 });
+           const rowHeight = 15 + 15 + reasonH + 20; 
+           
+           checkPageBreak(rowHeight);
+           doc.fill(DARK_BLUE).fontSize(11).font('Helvetica-Bold').text(`• ${cleanText(item.projectName || item.certification || item.company)}`, 40, doc.y, { continued: (item.role || item.provider) ? true : false });
+           if (item.role) doc.font('Helvetica').text(` - ${cleanText(item.role)}`);
+           else if (item.provider) doc.font('Helvetica').text(` - ${cleanText(item.provider)}`);
+           else doc.text(''); // Newline
+           
+           doc.y += doc.currentLineHeight() * 0.2;
+           if (item.technologies) {
+             doc.fill(TEXT_MAIN).fontSize(10).font('Helvetica').text(`Technologies: ${item.technologies?.join(', ')}`, 50, doc.y);
+           }
+           if (item.duration) {
+             doc.fill(TEXT_MUTED).fontSize(10).font('Helvetica').text(`Duration: ${cleanText(item.duration)}`, 50, doc.y);
+           }
+           doc.fill(color).font('Helvetica-Bold').text(relevanceText, 50, doc.y);
+           doc.fill(TEXT_MAIN).font('Helvetica').text(reasonText, 50, doc.y, { width: 505 });
+           doc.y += 10;
+        });
+      };
 
-      addSectionHeader('Final Hiring Verdict');
+      const arrays = data.processedArrays || {};
 
-      const verdictStartY = doc.y;
-      // Ensure we have enough space for the title box and reasoning block
+      // --- Section 5 & 6: Projects ---
+      renderItems('Top Relevant Projects', arrays.topProjects, GREEN);
+      renderItems('Other Projects', arrays.otherProjects, TEXT_MUTED);
+
+      // --- Section 7 & 8: Internships / Experience ---
+      renderItems('Top Relevant Internships & Experience', arrays.topExperience, GREEN);
+      renderItems('Other Experience', arrays.otherExperience, TEXT_MUTED);
+
+      // --- Section 9: Certifications ---
+      renderItems('Relevant Certifications', arrays.topCerts, CYAN);
+      renderItems('Other Certifications', arrays.otherCerts, TEXT_MUTED);
+
+      // --- Section 10: Education ---
+      if (data.extractedResumeInfo?.education?.length > 0) {
+        addSectionHeader('Education');
+        data.extractedResumeInfo.education.forEach((edu: string) => {
+           checkPageBreak(20);
+           doc.fill(TEXT_MAIN).fontSize(10).font('Helvetica').text(`• ${cleanText(edu)}`, 40, doc.y, { width: 515 });
+        });
+      }
+
+      // --- Strengths, Weaknesses, Missing Skills Helper ---
+      const renderList = (title: string, items: string[], isStrength: boolean, isMissing: boolean = false) => {
+         if (!items || items.length === 0) return;
+         addSectionHeader(title);
+         items.forEach(i => {
+            const text = `• ${cleanText(i)}`;
+            doc.fontSize(10).font('Helvetica');
+            const h = doc.heightOfString(text, { width: 505 });
+            checkPageBreak(h + 5);
+            doc.fill(isStrength ? GREEN : (isMissing ? RED : TEXT_MUTED)).text(text, 50, doc.y, { width: 505 });
+         });
+         doc.y += 5;
+      };
+
+      // --- Section 11 & 12: Strengths & Weaknesses ---
+      renderList('Strengths', data.strengths, true);
+      renderList('Weaknesses', data.weaknesses, false);
+
+      // --- Section 13: Missing Skills ---
+      const missingAll = [];
+      if (data.missingSkills) {
+         if (data.missingSkills.critical) missingAll.push(...data.missingSkills.critical.map((s: string) => `${s} (Critical)`));
+         if (data.missingSkills.important) missingAll.push(...data.missingSkills.important.map((s: string) => `${s} (Important)`));
+         if (data.missingSkills.optional) missingAll.push(...data.missingSkills.optional.map((s: string) => `${s} (Optional)`));
+      }
+      renderList('Missing Skills', missingAll, false, true);
+
+      // --- Section 14: Growth Potential ---
+      if (data.careerGrowthPotential) {
+         addSectionHeader('Growth Potential');
+         checkPageBreak(50);
+         doc.fill(TEXT_MAIN).fontSize(10).font('Helvetica').text(cleanText(data.careerGrowthPotential), 40, doc.y, { width: 515, lineGap: 3 });
+         doc.y += 15;
+      }
+
+      // --- Section 15: Interview Recommendation ---
+      if (data.interviewRecommendation) {
+         addSectionHeader('Interview Recommendation');
+         checkPageBreak(50);
+         doc.fill(TEXT_MAIN).fontSize(10).font('Helvetica').text(cleanText(data.interviewRecommendation), 40, doc.y, { width: 515, lineGap: 3 });
+         doc.y += 15;
+      }
+
+      // --- Section 16: Final Verdict ---
+      const verdict = cleanText(data.finalVerdict || "Analysis Complete");
+      const reasoning = cleanText(data.verdictReasoning || "Candidate analyzed.");
+
+      addSectionHeader('CareerDNA Recruiter Verdict');
+
       doc.font('Helvetica').fontSize(10);
       const reasoningHeight = doc.heightOfString(reasoning, { width: 495 }) + 20;
-      if (verdictStartY + 25 + reasoningHeight + 20 > 780) {
-        doc.addPage();
-      }
       
-      const newVerdictStartY = doc.y;
-      doc.rect(40, newVerdictStartY, 515, 25).fill(BG_LIGHT).stroke(CYAN);
-      doc.fill(CYAN).fontSize(11).font('Helvetica-Bold').text(`Verdict: ${verdict}`, 50, newVerdictStartY + 7);
+      checkPageBreak(25 + reasoningHeight + 20);
+      const verdictStartY = doc.y;
       
-      const reasoningY = newVerdictStartY + 25;
+      doc.rect(40, verdictStartY, 515, 25).fill(BG_LIGHT).stroke(CYAN);
+      doc.fill(CYAN).fontSize(11).font('Helvetica-Bold').text(`Verdict: ${verdict}`, 50, verdictStartY + 7);
+      
+      const reasoningY = verdictStartY + 25;
+      
       doc.rect(40, reasoningY, 515, reasoningHeight).fill(BG_LIGHT).stroke(CYAN);
       doc.fill(TEXT_MAIN).fontSize(10).font('Helvetica').text(reasoning, 50, reasoningY + 10, { width: 495, lineGap: 3 });
 
+      // Update y safely
       doc.y = reasoningY + reasoningHeight + 20;
 
       // Footer on all pages
       const pages = doc.bufferedPageRange();
+      
+      // Prune trailing blank pages if any exist
+      // pdfkit doesn't allow removing pages easily, but ensuring doc.y > 780 is not crossed manually prevents them.
       for (let i = 0; i < pages.count; i++) {
         doc.switchToPage(i);
         doc.font('Helvetica').fontSize(9).fill(TEXT_MUTED)
