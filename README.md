@@ -1,6 +1,6 @@
 # CareerDNA AI (AI-Powered Resume JD Analyzer)
 
-An advanced, intelligent resume and job description (JD) matching system powered by Google Gemini AI.
+An advanced, intelligent resume and job description (JD) matching system powered by Llama 3 via Groq AI.
 
 ## Application Workflow
 
@@ -13,7 +13,7 @@ flowchart TD
     
     subgraph Processing
     C["⚙️ Extract & Parse Text"]
-    D["🧠 Gemini AI Evidence Evaluation"]
+    D["🧠 Groq AI Evidence Evaluation"]
     E["📊 Score & Rank Candidates"]
     end
     
@@ -43,8 +43,8 @@ CareerDNA AI follows a modern decoupled client-server architecture built entirel
 2. **Server (Express.js)**: 
    - Files are temporarily saved.
    - Text is extracted from the documents using dedicated parser services.
-   - A detailed prompt containing the parsed text is sent to the **Google Gemini AI Service**.
-3. **AI Engine (Gemini)**: 
+   - A detailed prompt containing the parsed text is sent to the **Groq AI Service**.
+3. **AI Engine (Groq / Llama 3)**: 
    - Analyzes each candidate based on evidence (skills, projects, education).
    - If multiple candidates exist, performs a comparative ranking analysis.
 4. **Processing & Scoring**: The backend calculates a final weighted match score and packages the comprehensive JSON response.
@@ -62,12 +62,12 @@ graph TD
         API -->|File Uploads| Multer[Multer Middleware]
         Multer --> Storage[Local Storage /uploads]
         Storage --> TextExt[Text Extractor Service]
-        TextExt -->|Raw Text| Gemini[Gemini AI Service]
-        Gemini -->|JSON Analysis| Controller[Analyze Controller]
+        TextExt -->|Raw Text| Groq[Groq AI Service]
+        Groq -->|JSON Analysis| Controller[Analyze Controller]
         Controller -->|Custom Scoring Logic| Controller
     end
     
-    Gemini <-->|Prompt + Candidate Data| LLM[Google Gemini Pro]
+    Groq <-->|Prompt + Candidate Data| LLM[Llama 3 via Groq]
     
     Controller -->|Analysis JSON Array| Client
     
@@ -80,7 +80,7 @@ graph TD
 
 - **Resume Upload & Parsing**: Supports PDF/DOCX resumes.
 - **JD Parsing**: Raw text input or file upload.
-- **Gemini AI Matching Engine**: Leverages LLMs to evaluate compatibility beyond just keyword searching (uses semantic matching).
+- **Groq AI Matching Engine**: Leverages LLMs (like Llama 3) to evaluate compatibility beyond just keyword searching (uses semantic matching).
 - **Match Score & Report**: Generates a detailed match percentage, highlights missing key skills, and suggests edits to the resume.
 - **Developers Portal**: Meet the creators of CareerDNA AI.
 
@@ -89,7 +89,7 @@ graph TD
 ### Prerequisites
 - Node.js (v18+)
 - npm
-- Google Gemini API Key
+- Groq API Key
 
 ### Installation
 
@@ -107,7 +107,7 @@ graph TD
    Create a `.env` file in the `backend` directory and add:
    ```env
    PORT=5000
-   GEMINI_API_KEY=your_gemini_api_key_here
+   GROQ_API_KEY=your_groq_api_key_here
    ```
    Run the backend:
    ```bash
