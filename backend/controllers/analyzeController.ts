@@ -1,6 +1,6 @@
 import { Request, Response } from 'express';
 import { extractTextFromFile } from '../services/textExtractor';
-import { analyzeResume, compareResumes } from '../services/geminiService';
+import { analyzeResume, compareResumes } from '../services/groqService';
 import { calculateDeterministicScores } from '../services/scoringService';
 import fs from 'fs';
 import { generateProfessionalPdf } from '../services/pdfService';
@@ -64,31 +64,39 @@ export const analyzeFiles = async (req: Request, res: Response): Promise<void> =
           throw new Error(`Failed to extract text: ${resExtError.message || 'Unknown extraction error'}`);
         }
 
-        // Wait a few seconds between requests to avoid Gemini Free Tier rate limits (15 RPM)
+        // Wait between requests to spread out TPM usage for Groq Free Tier (15 seconds)
         if (results.length > 0) {
-          console.log(`[DEBUG] Waiting 4 seconds before processing next resume to respect rate limits...`);
-          await new Promise(resolve => setTimeout(resolve, 4000));
+          console.log(`[DEBUG] Waiting 15 seconds before processing next resume to respect rate limits...`);
+          await new Promise(resolve => setTimeout(resolve, 15000));
         }
 
-        console.log(`[DEBUG] Sending to Gemini API for: ${resume.originalname}`);
+        console.log(`[DEBUG] Sending to Groq API for: ${resume.originalname}`);
         
         let analysis: any;
-        let retries = 2;
+        let retries = 3;
         while (retries > 0) {
           try {
             analysis = await analyzeResume(jdText, resumeText, resume.originalname);
             break;
           } catch (apiErr: any) {
             retries--;
-            console.error(`[WARN] Gemini API Error for ${resume.originalname}, retries left: ${retries}. Error: ${apiErr.message}`);
+            const isRateLimit = apiErr.message?.toLowerCase().includes('rate limit');
+            console.error(`[WARN] Groq API Error for ${resume.originalname}, retries left: ${retries}. Error: ${apiErr.message}`);
+            
             if (retries === 0) throw apiErr;
-            // Wait longer before retry
-            await new Promise(resolve => setTimeout(resolve, 5000));
+            
+            if (isRateLimit) {
+              console.log(`[DEBUG] Rate limit hit. Waiting 60 seconds before retrying...`);
+              await new Promise(resolve => setTimeout(resolve, 60000));
+            } else {
+              // Wait longer before generic retry
+              await new Promise(resolve => setTimeout(resolve, 5000));
+            }
           }
         }
         
         if (!analysis || !analysis.candidateName) {
-           throw new Error('Validation Error: Invalid JSON returned from Gemini (missing candidateName)');
+           throw new Error('Validation Error: Invalid JSON returned from Groq (missing candidateName)');
         }
 
         console.log(`[DEBUG] Calculating deterministic scores for: ${resume.originalname}`);
@@ -124,14 +132,20 @@ export const analyzeFiles = async (req: Request, res: Response): Promise<void> =
         // Expose processed arrays for PDF Service
         analysis.processedArrays = scores.processedArrays;
 
+        console.log(`[DEBUG] ATS Score for ${resume.originalname}: ${scores.atsScore}`);
+        console.log(`[DEBUG] Candidate Name: ${analysis.candidateName}`);
         console.log(`[DEBUG] Received valid analysis for: ${resume.originalname}, Final Score: ${finalScore}%`);
+        console.log(`[DEBUG] Report Generation Status: SUCCESS for ${resume.originalname}`);
         
         results.push({
           ...analysis,
           originalName: resume.originalname
         });
       } catch (err: any) {
-        console.error(`Analysis Pipeline Error for ${resume.originalname}:`, err.message || err);
+        console.error(`[ERROR] Analysis Pipeline Error for ${resume.originalname}:`);
+        console.error(err.stack || err);
+        console.error(`Status Code: ${err.status || 500}`);
+        console.error(`Error Message: ${err.message || 'Unknown Error'}`);
         results.push({
           candidateName: resume.originalname,
           error: err.message || 'An error occurred during analysis pipeline',
@@ -201,7 +215,7 @@ export const generatePdfReport = async (req: Request, res: Response): Promise<vo
       const safeName = (data.candidateName || 'Candidate').replace(/\s+/g, '');
       res.setHeader('Content-Disposition', `attachment; filename="CareerDNA_Report_${safeName}.pdf"`);
       res.send(pdfBuffer);
-      console.log(`Successfully generated PDF for candidate: ${data.candidateName}`);
+      console.log(`[DEBUG] PDF Generation Status: SUCCESS for ${data.candidateName}`);
     } else {
       console.log(`Generating ZIP archive for ${dataArray.length} reports...`);
       res.setHeader('Content-Type', 'application/zip');
@@ -210,7 +224,8 @@ export const generatePdfReport = async (req: Request, res: Response): Promise<vo
       const archive = archiver('zip', { zlib: { level: 9 } });
       
       archive.on('error', (err: any) => {
-        throw err;
+        console.error('[ERROR] ZIP generation error:', err.stack || err);
+        throw new Error(`ZIP generation failed: ${err.message}`);
       });
 
       archive.pipe(res);
@@ -226,13 +241,13 @@ export const generatePdfReport = async (req: Request, res: Response): Promise<vo
 
       console.log("Finalizing archive...");
       await archive.finalize();
-      console.log("ZIP created successfully");
+      console.log(`[DEBUG] ZIP Generation Status: SUCCESS for ${dataArray.length} reports`);
     }
 
   } catch (error: any) {
-    console.error('PDF Generation Error:', error.message || error);
+    console.error('[ERROR] PDF/ZIP Generation Error:', error.stack || error);
     if (!res.headersSent) {
-      res.status(500).json({ error: `An error occurred during PDF generation: ${error.message || 'Unknown error'}` });
+      res.status(500).json({ error: `PDF/ZIP generation failed: ${error.message || 'Unknown error'}` });
     }
   }
 };

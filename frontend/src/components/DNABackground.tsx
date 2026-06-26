@@ -22,21 +22,6 @@ export default function DNABackground() {
           );
         })}
       </div>
-      <style jsx>{`
-        .transform-style-3d {
-          transform-style: preserve-3d;
-        }
-        .translate-z-\\[20px\\] {
-          transform: translateY(-50%) translateZ(20px);
-        }
-        .-translate-z-\\[20px\\] {
-          transform: translateY(-50%) translateZ(-20px);
-        }
-        @keyframes rotateDNA {
-          from { transform: translateX(-50%) rotateY(0deg); }
-          to { transform: translateX(-50%) rotateY(360deg); }
-        }
-      `}</style>
     </div>
   );
 }

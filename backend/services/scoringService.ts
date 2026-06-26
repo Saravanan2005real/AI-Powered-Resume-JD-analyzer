@@ -45,25 +45,28 @@ export const calculateDeterministicScores = (parsedAnalysis: any) => {
   let skillMatchScore = skillMatrix.length > 0 ? Math.min(Math.round((skillPoints / expectedPoints) * 100), 100) : 0;
 
   // 2. Project Relevance Score (20%)
-  // Sum of relevance scores, capped at 100
+  // Base score on the most relevant project, plus a 20% bonus from the second most relevant
   let projectScore = 0;
   if (projects.length > 0) {
-     const projSum = projects.reduce((acc: number, p: any) => acc + getScore(p.relevanceScore), 0);
-     projectScore = Math.min(Math.round(projSum), 100);
+     const topScore = getScore(projects[0].relevanceScore);
+     const secondScore = projects.length > 1 ? getScore(projects[1].relevanceScore) : 0;
+     projectScore = Math.min(Math.round(topScore + (secondScore * 0.2)), 100);
   }
 
   // 3. Internship/Experience Relevance Score (15%)
   let internshipScore = 0;
   if (allExp.length > 0) {
-     const expSum = allExp.reduce((acc: number, e: any) => acc + getScore(e.relevanceScore), 0);
-     internshipScore = Math.min(Math.round(expSum), 100);
+     const topScore = getScore(allExp[0].relevanceScore);
+     const secondScore = allExp.length > 1 ? getScore(allExp[1].relevanceScore) : 0;
+     internshipScore = Math.min(Math.round(topScore + (secondScore * 0.2)), 100);
   }
 
   // 4. Certification Relevance Score (10%)
   let certificationScore = 0;
   if (certs.length > 0) {
-     const certSum = certs.reduce((acc: number, c: any) => acc + getScore(c.relevanceScore), 0);
-     certificationScore = Math.min(Math.round(certSum), 100);
+     const topScore = getScore(certs[0].relevanceScore);
+     const secondScore = certs.length > 1 ? getScore(certs[1].relevanceScore) : 0;
+     certificationScore = Math.min(Math.round(topScore + (secondScore * 0.2)), 100);
   }
 
   // 5. Education Match (10%)

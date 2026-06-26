@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import UploadPortal from "@/components/UploadPortal";
 import { motion } from "framer-motion";
 import GlassCard from "@/components/ui/GlassCard";
@@ -24,12 +24,13 @@ export default function Home() {
     }
   }, []);
 
-  const handleLoaderComplete = () => {
+  const handleLoaderComplete = useCallback(() => {
     sessionStorage.setItem('careerDNA_loader_shown', 'true');
     setShowLoader(false);
-  };
+  }, []);
 
   const handleAnalyze = async () => {
+    console.log("Analyze button clicked");
     if (jdFiles.length === 0 || resumeFiles.length === 0) {
       alert("Please upload both a Job Description and at least one Resume.");
       return;
@@ -44,10 +45,13 @@ export default function Home() {
     });
 
     try {
+      console.log("Sending request to backend...");
+      console.log("Request payload:", formData);
       const response = await fetch('http://localhost:5000/api/analyze', {
         method: 'POST',
         body: formData,
       });
+      console.log("Response status:", response.status);
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
@@ -55,6 +59,7 @@ export default function Home() {
       }
 
       const data = await response.json();
+      console.log("Response:", data);
       
       if (data && data.length > 0) {
         setAnalysisData(data); // Save the entire array
@@ -64,6 +69,7 @@ export default function Home() {
         setAppState("upload");
       }
     } catch (error: any) {
+      console.error("API ERROR:", error);
       console.error('Analysis pipeline error:', error);
       alert(`Analysis Failed: ${error.message || 'An unexpected error occurred.'}`);
       setAppState("upload");
@@ -187,8 +193,11 @@ export default function Home() {
             <div className="flex flex-col sm:flex-row items-center justify-center gap-6 mt-16 pb-20">
               <button 
                 onClick={handleAnalyze}
-                disabled={jdFiles.length === 0 || resumeFiles.length === 0}
-                className="group relative px-8 py-4 w-full sm:w-auto font-bold text-white rounded-full bg-gradient-to-r from-primary to-secondary overflow-hidden transition-all duration-300 transform shadow-[0_0_10px_rgba(14,165,233,0.2)] hover:shadow-[0_0_15px_rgba(168,85,247,0.3)] hover:-translate-y-1 disabled:opacity-50 disabled:hover:translate-y-0 disabled:hover:shadow-none will-change-transform"
+                className={`group relative px-8 py-4 w-full sm:w-auto font-bold text-white rounded-full bg-gradient-to-r from-primary to-secondary overflow-hidden transition-all duration-300 transform will-change-transform ${
+                  jdFiles.length === 0 || resumeFiles.length === 0 
+                  ? 'opacity-50 hover:translate-y-0 shadow-none' 
+                  : 'shadow-[0_0_10px_rgba(14,165,233,0.2)] hover:shadow-[0_0_15px_rgba(168,85,247,0.3)] hover:-translate-y-1'
+                }`}
               >
                 <span className="absolute inset-0 w-full h-full bg-white/20 group-hover:scale-105 transition-transform duration-300 ease-out"></span>
                 <span className="relative flex items-center justify-center gap-2 text-lg tracking-wide">

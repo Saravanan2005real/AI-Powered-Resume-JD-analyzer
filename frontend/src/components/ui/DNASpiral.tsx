@@ -36,12 +36,6 @@ export default function DNASpiral() {
           );
         })}
       </div>
-      <style jsx>{`
-        @keyframes spinDNASpiral {
-          0% { transform: rotateY(0deg); }
-          100% { transform: rotateY(360deg); }
-        }
-      `}</style>
     </div>
   );
 }

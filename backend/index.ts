@@ -1,8 +1,16 @@
 import dotenv from 'dotenv';
-dotenv.config();
+dotenv.config({ override: true });
 
-console.log("ENV RESULT:", process.env.GEMINI_API_KEY ? "Loaded" : "Missing");
-console.log("GEMINI KEY:", process.env.GEMINI_API_KEY ? "Loaded" : "Missing");
+console.log("========== GROQ DEBUG ==========");
+console.log("GROQ_API_KEY:", process.env.GROQ_API_KEY);
+console.log("API Key Loaded:", process.env.GROQ_API_KEY ? "YES" : "NO");
+console.log("API Key Length:", process.env.GROQ_API_KEY?.length || 0);
+console.log("==================================");
+
+if (!process.env.GROQ_API_KEY) {
+  console.error("GROQ_API_KEY is missing.\nPlease configure backend/.env");
+  process.exit(1);
+}
 import express from 'express';
 import cors from 'cors';
 import analyzeRoutes from './routes/analyzeRoutes';
@@ -20,9 +28,20 @@ if (!fs.existsSync(uploadsDir)) {
 }
 
 // Middleware
-app.use(cors({ origin: '*' }));
+app.use(cors({
+  origin: "http://localhost:3000",
+  credentials: true
+}));
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
+
+// Health Endpoint
+app.get("/health", (req, res) => {
+  res.json({
+    status: "ok",
+    groq: !!process.env.GROQ_API_KEY
+  });
+});
 
 // Routes
 app.use('/api/analyze', analyzeRoutes);
